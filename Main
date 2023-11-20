@@ -1,1 +1,8 @@
--
+import chess
+
+BOARD = chess.Board("1k6/8/1pKB4/6p1/Q6p/8/P3BP1P/2R5")
+
+print(BOARD.turn)
+print(BOARD)
+BOARD.push(chess.Move.null())
+print(list(BOARD.generate_legal_moves()))
