@@ -2,20 +2,26 @@
 import chess
 import os
 
-#Initial board output
+# Make board
 BOARD = chess.Board()
 print(BOARD)
 
-#loop while the player isn't in checkmate
+# Loop while game is being played
 while not BOARD.is_checkmate():
   
-  ##entered moves and clears console
-  entermove = input("Move: ")
+  # Find all legal moves 
+  Legal = list(BOARD.generate_legal_moves())
+
+  # Tricky oneliner to take in a move and try it until it is valid
+  while(move := chess.Move.from_uci(Inputtedmove := input("Move: ").lower())) not in Legal:
+    print("please enter a legal move")
+
+  # Clear screen
   os.system('clear')
   
-  ##plays move on the board
-  Move = chess.Move.from_uci(entermove)
-  BOARD.push(Move) 
-
-  ## Output the board with the move played
+  # Enters move
+  BOARD.push(move) 
   print(BOARD)
+
+  # Pause until an enter to move on
+  y = input()
