@@ -1,8 +1,21 @@
+#Imports
 import chess
+import os
 
-BOARD = chess.Board("1k6/8/1pKB4/6p1/Q6p/8/P3BP1P/2R5")
-
-print(BOARD.turn)
+#Initial board output
+BOARD = chess.Board()
 print(BOARD)
-BOARD.push(chess.Move.null())
-print(list(BOARD.generate_legal_moves()))
+
+#loop while the player isn't in checkmate
+while not BOARD.is_checkmate():
+  
+  ##entered moves and clears console
+  entermove = input("Move: ")
+  os.system('clear')
+  
+  ##plays move on the board
+  Move = chess.Move.from_uci(entermove)
+  BOARD.push(Move) 
+
+  ## Output the board with the move played
+  print(BOARD)
