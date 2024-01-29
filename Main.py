@@ -2,6 +2,7 @@
 import chess
 from os import system
 from random import randint as Random_number
+from Evaluation import evaluateBoard
 
 # Setup board 
 BOARD = chess.Board()
@@ -29,8 +30,23 @@ while not BOARD.outcome():
     ## Find all legal moves for the Bot
     Legal = list(BOARD.generate_legal_moves())
 
-    ## Selects a random move and plays it
-    Makemove = Legal[Random_number(0, len(Legal)) - 1]
+    currentBestEvaluation = 100000
+
+    ## Loops through elements, comparing them to find the highest rated move
+    for m in Legal:
+
+      ### Plays the move and evaluates it
+      BOARD.push(m)
+      rating = evaluateBoard(BOARD)
+
+      ### Replaces the current move and highest rating  
+      ### with the new move if it is higher rated 
+      if rating < currentBestEvaluation:
+        Makemove = m
+        currentBestEvaluation = rating
+
+      ### Undoes the move 
+      BOARD.pop()
 
     ## Displays the move played as well as the board afterwards
     BOARD.push(Makemove)
