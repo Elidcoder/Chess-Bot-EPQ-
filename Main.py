@@ -3,10 +3,11 @@ import chess
 from os import system
 from random import randint as Random_number
 from Evaluation import evaluateBoard
+from Display_board import displayBoard
 
 # Setup board 
 BOARD = chess.Board()
-print(BOARD)
+displayBoard(BOARD)
 
 # Run game while there is no outcome of the game
 while not BOARD.outcome():
@@ -51,4 +52,4 @@ while not BOARD.outcome():
     ## Displays the move played as well as the board afterwards
     BOARD.push(Makemove)
     print("\nAI played:", Makemove.uci(), "\n")
-    print(BOARD)
+    displayBoard(BOARD)
