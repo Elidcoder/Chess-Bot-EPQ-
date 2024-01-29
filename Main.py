@@ -30,9 +30,9 @@ while not BOARD.outcome():
     Legal = list(BOARD.generate_legal_moves())
 
     ## Selects a random move and plays it
-    Makemove = Legal[Random_number(0,len(Legal))]
+    Makemove = Legal[Random_number(0, len(Legal)) - 1]
 
     ## Displays the move played as well as the board afterwards
     BOARD.push(Makemove)
-    print("\nAI played:" , Makemove.uci() , "\n")
+    print("\nAI played:", Makemove.uci(), "\n")
     print(BOARD)
