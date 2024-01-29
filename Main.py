@@ -29,21 +29,21 @@ while not BOARD.outcome():
   if not BOARD.outcome():  
 
     ## Find all legal moves for the Bot
-    Legal = list(BOARD.generate_legal_moves())
+    legalMoves = list(BOARD.generate_legal_moves())
 
     currentBestEvaluation = 100000
 
     ## Loops through elements, comparing them to find the highest rated move
-    for m in Legal:
+    for move in legalMoves:
 
       ### Plays the move and evaluates it
-      BOARD.push(m)
+      BOARD.push(move)
       rating = evaluateBoard(BOARD)
 
       ### Replaces the current move and highest rating  
       ### with the new move if it is higher rated 
       if rating < currentBestEvaluation:
-        Makemove = m
+        Makemove = move
         currentBestEvaluation = rating
 
       ### Undoes the move 
@@ -53,3 +53,13 @@ while not BOARD.outcome():
     BOARD.push(Makemove)
     print("\nAI played:", Makemove.uci(), "\n")
     displayBoard(BOARD)
+
+# Display a message to show who won the game
+outcome = BOARD.outcome()
+if outcome.winner == True:
+  print("Congratulations player you won!")
+elif outcome.winner == False:
+  print("I'm afraid the computer won this time")
+else:
+  print("This game is a draw")
+
