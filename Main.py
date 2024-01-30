@@ -1,8 +1,7 @@
 # Imports
 import chess
 from os import system
-from random import randint as Random_number
-from Evaluation import mini, maxi
+from Evaluation import ABmaxi, ABmini
 import Display_board as display
 
 # Convenient board displayer
@@ -31,7 +30,7 @@ if not Playeriswhite and not BOARD.outcome():
 
     ### Plays the move and evaluates it
     BOARD.push(move)
-    rating = mini(BOARD, depthToSearchAt)
+    rating = ABmaxi(-10000,10000, BOARD, depthToSearchAt)
 
     ### Replaces the current move and highest rating  
     ### with the new move if it is higher rated 
@@ -74,7 +73,7 @@ while not BOARD.outcome():
 
         ### Plays the move and evaluates it
         BOARD.push(move)
-        rating = maxi(BOARD, depthToSearchAt)
+        rating = ABmini(-10000, 10000, BOARD, depthToSearchAt)
 
         ### Replaces the current move and lowest rating  
         ### with the new move if it is lower rated 
@@ -95,7 +94,7 @@ while not BOARD.outcome():
 
         #### Plays the move and evaluates it
         BOARD.push(move)
-        rating = mini(BOARD, depthToSearchAt)
+        rating = ABmaxi(-10000, 10000, BOARD, depthToSearchAt)
 
         #### Replaces the current move and highest rating  
         #### with the new move if it is higher rated 

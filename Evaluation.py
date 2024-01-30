@@ -31,31 +31,32 @@ def evaluateBoard(board):
   return score
 
 # Current player is trying to minimise their score (black)
-def mini(board, depth):
+def ABmini(Alpha, Beta, board, depth):
 
   ## If it's a draw score 0, if it's a checkmate score badly 
   ## also further away mates are better than nearer mates 
   if board.outcome():
     if board.outcome().winner:
-      return 10000-depth
+      return 10000 - depth
     return 0
   
-  ## If depth is non-zero return the lowest scoring follow up move's score
-  if depth:  
-    alpha = 100000
-    for move in list(board.generate_legal_moves()):
+  ## If depth is non-zero return the score using alpha - beta pruning
+  if depth:
+    for move in board.generate_legal_moves():
       board.push(move)
-      rating = maxi(board, depth - 1)
-      if rating < alpha:
-        alpha = rating
+      rating = ABmaxi(Alpha, Beta, board, depth-1)
       board.pop()
-    return alpha
+      if rating <= Alpha:
+        return Alpha
+      if rating < Beta:
+        Beta = rating
+    return Beta
   
   ## If depth is zero evaluate the board
   return evaluateBoard(board)
 
 # Current player is trying to maximise their score (white)
-def maxi(board, depth):
+def ABmaxi(Alpha, Beta, board, depth):
 
   ## If it's a draw score 0, if it's a checkmate score badly 
   ## also further away mates are better than nearer mates 
@@ -66,14 +67,15 @@ def maxi(board, depth):
   
   ## If depth is non-zero return the highest scoring follow up move's score
   if depth:
-    alpha = -100000
-    for move in list(board.generate_legal_moves()):
-      board.push(move)        
-      rating = mini(board, depth - 1)
+    for move in board.generate_legal_moves():
+      board.push(move)
+      rating = ABmini(Alpha, Beta, board, depth-1)
       board.pop()
-      if rating > alpha:
-        alpha = rating        
-    return alpha
+      if rating >= Beta:
+        return Beta
+      if rating > Alpha:
+        Alpha = rating
+    return Alpha
   
   ## If depth is zero evaluate the board
   return evaluateBoard(board)
