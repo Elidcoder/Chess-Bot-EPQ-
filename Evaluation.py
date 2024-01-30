@@ -30,6 +30,22 @@ def evaluateBoard(board):
     score +=1
   return score
 
+# Evaluation of a move on board with no depth
+def evaluateMoveOnBoard(move, board):
+
+  ## Play the move
+  board.push(move)
+
+  ## Get the value of the board, since this is used to sort moves 
+  ## which will be on the same turn the +- 0.5 would make no difference
+  score = 0
+  for key, value in board.piece_map().items():
+      score += pieceValues[value][key]
+  
+  ## Undo the move and return the evaluation
+  board.pop()
+  return score
+
 # Current player is trying to minimise their score (black)
 def ABmini(Alpha, Beta, board, depth):
 
@@ -42,7 +58,8 @@ def ABmini(Alpha, Beta, board, depth):
   
   ## If depth is non-zero return the score using alpha - beta pruning
   if depth:
-    for move in board.generate_legal_moves():
+    for move in sorted(board.generate_legal_moves(), 
+                       key = lambda x: evaluateMoveOnBoard(x, board)):
       board.push(move)
       rating = ABmaxi(Alpha, Beta, board, depth-1)
       board.pop()
@@ -67,7 +84,8 @@ def ABmaxi(Alpha, Beta, board, depth):
   
   ## If depth is non-zero return the highest scoring follow up move's score
   if depth:
-    for move in board.generate_legal_moves():
+    for move in sorted(board.generate_legal_moves(), 
+                       key = lambda x: - evaluateMoveOnBoard(x, board)):
       board.push(move)
       rating = ABmini(Alpha, Beta, board, depth-1)
       board.pop()
