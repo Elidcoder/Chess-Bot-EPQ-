@@ -34,6 +34,3 @@ def displayBoard(Board):
 
   ## Print the column letters
   print(GOLD+"\n   A  B  C  D  E  F  G  H", end = white + "\n")
-
-
-

@@ -27,7 +27,7 @@ def evaluateBoard(board, depth):
   ## the code first check the current turn
   if board.turn:
 
-    ### if the player is white and it's checkmate,
+    ### If the player is white and it's checkmate,
     ### it's very good for black
     if board.is_checkmate():
       return -10000
@@ -44,7 +44,20 @@ def evaluateBoard(board, depth):
           alpha = rating        
       return alpha
     
-    ### If depth is zero, evaluate as before
+    ### If depth is zero but possible captures exist 
+    ### use the highest value capture to determine the evaluation
+    if board.attackers(board.turn, board.peek().to_square):
+      Capt = board.attackers(board.turn, board.peek().to_square)
+      alpha = -10000
+      for m in Capt:
+        board.push(chess.Move.from_uci(chess.square_name(m) + chess.square_name(board.peek().to_square)))      
+        rating = evaluateBoard(board, 0)
+        board.pop()
+        if rating > alpha:
+          alpha = rating        
+      return alpha
+    
+    ### Otherwise if depth is zero, evaluate as before
     score = 0
     for square,piece in board.piece_map().items():
       score += pieceValues[piece][square]
@@ -67,7 +80,20 @@ def evaluateBoard(board, depth):
       board.pop()
     return alpha
   
-  ## If depth is zero, evaluate as before
+  ## If depth is zero but possible captures exist 
+  ## use the lowest value capture to determine the evaluation
+  if board.attackers(board.turn, board.peek().to_square):
+      Capt = board.attackers(board.turn, board.peek().to_square)
+      alpha = 10000
+      for m in Capt:
+        board.push(chess.Move.from_uci(chess.square_name(m) + chess.square_name(board.peek().to_square)))
+        rating = evaluateBoard(board, 0)
+        board.pop()
+        if rating < alpha:
+          alpha = rating        
+      return alpha  
+  
+  ## Otherwise if depth is zero, evaluate as before
   score = 0
   for square,piece in board.piece_map().items():
     score += pieceValues[piece][square]
