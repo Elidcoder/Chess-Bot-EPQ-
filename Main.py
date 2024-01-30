@@ -2,20 +2,56 @@
 import chess
 from os import system
 from random import randint as Random_number
-from Evaluation import maxi
-from Display_board import displayBoard
+from Evaluation import mini, maxi
+import Display_board as display
 
-# Setup board and initial depth
+# Convenient board displayer
+Playeriswhite = True
+def outputboard():
+  if Playeriswhite:
+    display.displayBoardAsWhite(BOARD)
+  else:
+    display.displayBoardAsBlack(BOARD)
+
+# Setup board, get the player colour and initial depth
 BOARD = chess.Board()
-displayBoard(BOARD)
+colour = input("What colour are you?").upper()
+if colour not in ["WHITE","W"]:Playeriswhite = False
+outputboard()
 depthToSearchAt = 2
+
+# If the bot is white and initial boardstate isn't over then the bot starts
+if not Playeriswhite and not BOARD.outcome():
+
+  ## Find all legal moves for the Bot and initialise current evaluation
+  currentBestEvaluation = -100000
+
+  ## Loops through elements, comparing them to find the highest rated move
+  for move in list(BOARD.generate_legal_moves()):
+
+    ### Plays the move and evaluates it
+    BOARD.push(move)
+    rating = mini(BOARD, depthToSearchAt)
+
+    ### Replaces the current move and highest rating  
+    ### with the new move if it is higher rated 
+    if rating > currentBestEvaluation:
+      Makemove = move
+      currentBestEvaluation = rating
+
+    ### Undoes the move 
+    BOARD.pop()
+
+  ## Displays the move played as well as the board afterwards
+  BOARD.push(Makemove)
+  print("\nAI played:", Makemove.uci(), "\n")
+  outputboard()
 
 # Run game while there is no outcome of the game
 while not BOARD.outcome():
   
-  # Create a list of all legal moves 
-  legalMoves = list(BOARD.generate_legal_moves())
-  parsedLegalMoves = [x.uci() for x in legalMoves]
+  # Create a parsed list of all legal moves 
+  parsedLegalMoves = [x.uci() for x in list(BOARD.generate_legal_moves())]
 
   # Check if the inputted move is in the list of legal moves
   while (move := input("Enter move: ").lower().strip()) not in parsedLegalMoves:
@@ -25,34 +61,55 @@ while not BOARD.outcome():
   system('clear')
   Makemove = chess.Move.from_uci(move)
   BOARD.push(Makemove) 
+  outputboard()
   
   # Generates a random move if there is no game outcome
   if not BOARD.outcome():  
+    if Playeriswhite:
+      ## Initialise current evaluation
+      currentBestEvaluation = 100000
 
-    ## Find all legal moves for the Bot and initialise current evaluation
-    legalMoves = list(BOARD.generate_legal_moves())
-    currentBestEvaluation = 100000
+      ## Loops through elements, comparing them to find the lowest rated move
+      for move in list(BOARD.generate_legal_moves()):
 
-    ## Loops through elements, comparing them to find the highest rated move
-    for move in legalMoves:
+        ### Plays the move and evaluates it
+        BOARD.push(move)
+        rating = maxi(BOARD, depthToSearchAt)
 
-      ### Plays the move and evaluates it
-      BOARD.push(move)
-      rating = maxi(BOARD, depthToSearchAt)
+        ### Replaces the current move and lowest rating  
+        ### with the new move if it is lower rated 
+        if rating < currentBestEvaluation:
+          Makemove = move
+          currentBestEvaluation = rating
 
-      ### Replaces the current move and highest rating  
-      ### with the new move if it is higher rated 
-      if rating < currentBestEvaluation:
-        Makemove = move
-        currentBestEvaluation = rating
+        ### Undoes the move 
+        BOARD.pop()
 
-      ### Undoes the move 
-      BOARD.pop()
+    else:
+      
+      ### Find all legal moves for the Bot and initialise current evaluation
+      currentBestEvaluation = -100000
 
-    ## Displays the move played as well as the board afterwards
+      ### Loops through elements, comparing them to find the highest rated move
+      for move in list(BOARD.generate_legal_moves()):
+
+        #### Plays the move and evaluates it
+        BOARD.push(move)
+        rating = mini(BOARD, depthToSearchAt)
+
+        #### Replaces the current move and highest rating  
+        #### with the new move if it is higher rated 
+        if rating > currentBestEvaluation:
+          Makemove = move
+          currentBestEvaluation = rating
+
+        #### Undoes the move 
+        BOARD.pop()
+
+    ### Displays the move played as well as the board afterwards
     BOARD.push(Makemove)
     print("\nAI played:", Makemove.uci(), "\n")
-    displayBoard(BOARD)
+    outputboard()
 
 # Display a message to show who won the game
 outcome = BOARD.outcome()
