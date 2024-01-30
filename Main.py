@@ -5,9 +5,10 @@ from random import randint as Random_number
 from Evaluation import evaluateBoard
 from Display_board import displayBoard
 
-# Setup board 
+# Setup board and initial depth
 BOARD = chess.Board()
 displayBoard(BOARD)
+depthToSearchAt = 2
 
 # Run game while there is no outcome of the game
 while not BOARD.outcome():
@@ -28,9 +29,8 @@ while not BOARD.outcome():
   # Generates a random move if there is no game outcome
   if not BOARD.outcome():  
 
-    ## Find all legal moves for the Bot
+    ## Find all legal moves for the Bot and initialise current evaluation
     legalMoves = list(BOARD.generate_legal_moves())
-
     currentBestEvaluation = 100000
 
     ## Loops through elements, comparing them to find the highest rated move
@@ -38,7 +38,7 @@ while not BOARD.outcome():
 
       ### Plays the move and evaluates it
       BOARD.push(move)
-      rating = evaluateBoard(BOARD)
+      rating = evaluateBoard(BOARD, depthToSearchAt)
 
       ### Replaces the current move and highest rating  
       ### with the new move if it is higher rated 
@@ -62,4 +62,3 @@ elif outcome.winner == False:
   print("I'm afraid the computer won this time")
 else:
   print("This game is a draw")
-
