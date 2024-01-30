@@ -2,7 +2,7 @@
 import chess
 from os import system
 from random import randint as Random_number
-from Evaluation import evaluateBoard
+from Evaluation import maxi
 from Display_board import displayBoard
 
 # Setup board and initial depth
@@ -38,7 +38,7 @@ while not BOARD.outcome():
 
       ### Plays the move and evaluates it
       BOARD.push(move)
-      rating = evaluateBoard(BOARD, depthToSearchAt)
+      rating = maxi(BOARD, depthToSearchAt)
 
       ### Replaces the current move and highest rating  
       ### with the new move if it is higher rated 
