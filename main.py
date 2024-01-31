@@ -1,8 +1,8 @@
 # Imports
 import chess
 from os import system
-from Evaluation import alpha_beta, evaluate_move_on_board
-import Display_board as display
+from evaluation import alpha_beta, evaluate_move_on_board
+import display_board as display
 
 # Define the depth to search at
 SEARCH_DEPTH = 4
