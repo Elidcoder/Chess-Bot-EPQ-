@@ -7,54 +7,54 @@ WHITE = "\u001b[47m"
 white = "\u001b[37m"
 
 # Define the square colours, piece colours and linenumber
-squareColours = [WHITE, GREEN]
-unicode_table = {"p":RED + "♟", "b":RED + "♝", "n":RED + "♞", "r": RED + "♜", "q": RED + "♛", "k":RED + "♚", "P": BLUE +"♙", "B": BLUE +"♗", "N":BLUE+"♘", "R": BLUE +"♖", "Q": BLUE +"♕", "K": BLUE +"♔"}
+SQUARE_COLOURS = [WHITE, GREEN]
+UNICODE_DICT = {"p":RED + "♟", "b":RED + "♝", "n":RED + "♞", "r": RED + "♜", "q": RED + "♛", "k":RED + "♚", "P": BLUE +"♙", "B": BLUE +"♗", "N":BLUE+"♘", "R": BLUE +"♖", "Q": BLUE +"♕", "K": BLUE +"♔"}
 
 # Generates a neater output for a board than regular printing
-def displayBoardAsWhite(Board):
+def display_board_as_white(board):
 
   ## Initial print and initialises remaining vars so everything else lines up
   print(GOLD + "8  ", end = "")
-  linenumber = 7
-  colourEnum = 1
+  line_number = 7
+  colour_enum = 1
   
   ## Loop through the board FEN turning it into a good output string
-  for l in Board.board_fen():
-    if l == "/" :
-      print("\n" + GOLD + str(linenumber) + "  ", end = "")
-      linenumber -= 1
-    elif l in {"1", "2","3", "4", "5", "6", "7", "8"}:     
-      for x in range(int(l)):
-        print(squareColours[colourEnum] + " ", end = "  ")
-        colourEnum = 1 - colourEnum
-      colourEnum = 1 - colourEnum
+  for character in board.board_fen():
+    if character == "/" :
+      print("\n" + GOLD + str(line_number) + "  ", end = "")
+      line_number -= 1
+    elif character in {"1", "2","3", "4", "5", "6", "7", "8"}:     
+      for x in range(int(character)):
+        print(SQUARE_COLOURS[colour_enum] + " ", end = "  ")
+        colour_enum = 1 - colour_enum
+      colour_enum = 1 - colour_enum
     else:
-      print(squareColours[colourEnum] + unicode_table[l], end = "  ")
-    colourEnum = 1 - colourEnum
+      print(SQUARE_COLOURS[colour_enum] + UNICODE_DICT[character], end = "  ")
+    colour_enum = 1 - colour_enum
 
   ## Print the column letters
-  print(GOLD+"\n   A  B  C  D  E  F  G  H", end = white + "\n")
+  print(GOLD + "\n   A  B  C  D  E  F  G  H", end = white + "\n")
 
-def displayBoardAsBlack(Board):
+def display_board_as_black(board):
   
   ## Initial print and initialises remaining vars so everything else lines up
   print(GOLD + "1  ", end = "")
-  linenumber = 2
-  colourEnum = 1
+  line_number = 2
+  colour_enum = 1
   
   ## Loop through the board FEN turning it into a good output string
-  for l in Board.board_fen()[::-1]:
-    if l == "/" :
-      print("\n" + GOLD + str(linenumber) + "  ", end = "")
-      linenumber += 1
-    elif l in {"1", "2","3", "4", "5", "6", "7", "8"}:     
-      for x in range(int(l)):
-        print(squareColours[colourEnum] + " ", end = "  ")
-        colourEnum = 1-colourEnum
-      colourEnum = 1-colourEnum
+  for character in board.board_fen()[::-1]:
+    if character == "/" :
+      print("\n" + GOLD + str(line_number) + "  ", end = "")
+      line_number += 1
+    elif character in {"1", "2","3", "4", "5", "6", "7", "8"}:     
+      for x in range(int(character)):
+        print(SQUARE_COLOURS[colour_enum] + " ", end = "  ")
+        colour_enum = 1 - colour_enum
+      colour_enum = 1 - colour_enum
     else:
-      print(squareColours[colourEnum] + unicode_table[l], end = "  ")
-    colourEnum = 1- colourEnum
+      print(SQUARE_COLOURS[colour_enum] + UNICODE_DICT[character], end = "  ")
+    colour_enum = 1 - colour_enum
 
   ## Print the column letters
-  print(GOLD+"\n   H  G  F  E  D  C  B  A", end = white + "\n")
+  print(GOLD + "\n   H  G  F  E  D  C  B  A", end = white + "\n")
