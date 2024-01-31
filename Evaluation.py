@@ -47,6 +47,17 @@ def evaluateMoveOnBoard(move, board):
   board.pop()
   return score
 
+# Get a quick estimate of the value of a capture
+def mvvVlaScore(board, Capture):
+
+  ## Will error iff the capture is an enpessent in which case 0 is scored
+  ## (pawn take pawn = 0)
+  try:
+    return (board.piece_type_at(Capture.from_square) - 
+            board.piece_type_at(Capture.to_square) % 6)
+  except:
+      return 0
+
 # This alphaBeta can be used as white or black so no need for max/min
 def alphaBeta(alpha, beta, board, depth):
     
@@ -71,3 +82,28 @@ def alphaBeta(alpha, beta, board, depth):
   
   ## If depth is zero evaluate the board
   return evaluateBoard(board)
+
+# Run a search through moves that would be dangerous to miss on evaluation
+def quiesenceSearch(alpha, beta, board):
+  
+  ## Get an initial bound and do a small AB prune check
+  boardvalue = evaluateBoard(board)
+  if boardvalue >= beta:
+      return beta
+  if alpha < boardvalue:
+      alpha = boardvalue
+
+  ## We look at only captures to make piece blunders aren't missed
+  ## Sort captures by their capture values since the rest of the board
+  ## Remains the same so doesn't need to be re-evaluated
+  for M in sorted(board.generate_legal_captures(),
+                key=lambda x: mvvVlaScore(x),
+                reverse=True):
+    board.push(M)
+    rating = -quiesenceSearch(-beta, -alpha, board)
+    board.pop()
+    if rating >= beta:
+      return beta
+    if rating > alpha:
+      alpha = rating
+  return alpha

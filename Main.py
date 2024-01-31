@@ -5,9 +5,9 @@ from Evaluation import alphaBeta, evaluateMoveOnBoard
 import Display_board as display
 
 # Convenient board displayer
-Playeriswhite = True
+playerIsWhite = True
 def outputboard():
-  if Playeriswhite:
+  if playerIsWhite:
     display.displayBoardAsWhite(BOARD)
   else:
     display.displayBoardAsBlack(BOARD)
@@ -16,25 +16,20 @@ def outputboard():
 BOARD = chess.Board()
 colour = input("What colour are you?").upper()
 if colour not in ["WHITE","W"]:
-  Playeriswhite = False
+  playerIsWhite = False
 outputboard()
 depthToSearchAt = 4
 
-# Since sorted is ascending and we want to search the better ones first,
-# white player will want the biggest (so lowest if all negative) and black
-# will just want the lowest value first so first if all positive
-whiteSortingKey = lambda x: - evaluateMoveOnBoard(x, BOARD)
-blackSortingKey = lambda x: evaluateMoveOnBoard(x, BOARD)
+# Assign each move its immediate value from whites perspective, 
+# this is flipped with reverse if the bot is black
+sortingKey = lambda x: - evaluateMoveOnBoard(x, BOARD)
 
 # If the bot is white and initial boardstate isn't over then the bot starts
-if not Playeriswhite and not BOARD.outcome():
-
-  ## Find all legal moves for the Bot and initialise current evaluation
-  alpha = -100000
-  beta = 100000
+if not playerIsWhite and not BOARD.outcome():
+  alpha, beta = -100000, 100000
 
   ## Loops through elements, comparing them to find the highest rated move
-  for move in sorted(BOARD.generate_legal_moves(), key = blackSortingKey):
+  for move in sorted(BOARD.generate_legal_moves(), key = sortingKey, reverse = playerIsWhite):
 
     ### Plays the move and evaluates it
     BOARD.push(move)
@@ -57,37 +52,38 @@ if not Playeriswhite and not BOARD.outcome():
 # Run game while there is no outcome of the game
 while not BOARD.outcome():
   
-  # Create a parsed list of all legal moves 
+  ## Create a parsed list of all legal moves 
   parsedLegalMoves = [x.uci() for x in list(BOARD.generate_legal_moves())]
 
-  # Check if the inputted move is in the list of legal moves
+  ## Check if the inputted move is in the list of legal moves
   while (move := input("Enter move: ").lower().strip()) not in parsedLegalMoves:
     print("please enter a legal move")
   
-  # Clears the screen then makes the legal move on the board
+  ## Clears the screen then makes the legal move on the board
   system('clear')
   Makemove = chess.Move.from_uci(move)
   BOARD.push(Makemove) 
   outputboard()
   
+  ## If the game isn't over the bot takes a turn, initialising variables
+  ## and then looping through the legal moves
   if not BOARD.outcome():  
 
-    alpha = -100000
-    beta  =  100000
-    for move in sorted(BOARD.generate_legal_moves(), key = blackSortingKey):
+    alpha, beta = -100000, 100000
+    for move in sorted(BOARD.generate_legal_moves(), key = sortingKey, reverse = playerIsWhite):
 
-      ### Plays the move and evaluates it
+      #### Plays the move and evaluates it
       BOARD.push(move)
       rating = -alphaBeta(-beta,- alpha, BOARD, depthToSearchAt)
       print(move, rating)
 
-      ### Replaces the current move and highest rating  
-      ### with the new move if it is higher rated 
+      #### Replaces the current move and highest rating  
+      #### with the new move if it is higher rated 
       if rating > alpha:
         Makemove = move
         alpha = rating
 
-      ### Undoes the move 
+      #### Undoes the move 
       BOARD.pop()
     
     ### Displays the move played as well as the board afterwards
