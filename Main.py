@@ -1,7 +1,7 @@
 # Imports
 import chess
 from os import system
-from Evaluation import ABmaxi, ABmini, evaluateMoveOnBoard
+from Evaluation import alphaBeta, evaluateMoveOnBoard
 import Display_board as display
 
 # Convenient board displayer
@@ -15,7 +15,8 @@ def outputboard():
 # Setup board, get the player colour and initial depth
 BOARD = chess.Board()
 colour = input("What colour are you?").upper()
-if colour not in ["WHITE","W"]:Playeriswhite = False
+if colour not in ["WHITE","W"]:
+  Playeriswhite = False
 outputboard()
 depthToSearchAt = 4
 
@@ -29,20 +30,21 @@ blackSortingKey = lambda x: evaluateMoveOnBoard(x, BOARD)
 if not Playeriswhite and not BOARD.outcome():
 
   ## Find all legal moves for the Bot and initialise current evaluation
-  currentBestEvaluation = -100000
+  alpha = -100000
+  beta = 100000
 
   ## Loops through elements, comparing them to find the highest rated move
   for move in sorted(BOARD.generate_legal_moves(), key = blackSortingKey):
 
     ### Plays the move and evaluates it
     BOARD.push(move)
-    rating = ABmini(-10000,10000, BOARD, depthToSearchAt)
-
+    rating = -alphaBeta(-beta,- alpha, BOARD, depthToSearchAt)
+    print(move, rating)
     ### Replaces the current move and highest rating  
     ### with the new move if it is higher rated 
-    if rating > currentBestEvaluation:
+    if rating > alpha:
       Makemove = move
-      currentBestEvaluation = rating
+      alpha = rating
 
     ### Undoes the move 
     BOARD.pop()
@@ -68,49 +70,26 @@ while not BOARD.outcome():
   BOARD.push(Makemove) 
   outputboard()
   
-  # Generates a random move if there is no game outcome
   if not BOARD.outcome():  
-    if Playeriswhite:
-      ## Initialise current evaluation
-      currentBestEvaluation = 100000
 
-      ## Loops through elements, comparing them to find the lowest rated move
-      for move in sorted(BOARD.generate_legal_moves(), key = whiteSortingKey):
+    alpha = -100000
+    beta  =  100000
+    for move in sorted(BOARD.generate_legal_moves(), key = blackSortingKey):
 
-        ### Plays the move and evaluates it
-        BOARD.push(move)
-        rating = ABmaxi(-10000, 10000, BOARD, depthToSearchAt)
+      ### Plays the move and evaluates it
+      BOARD.push(move)
+      rating = -alphaBeta(-beta,- alpha, BOARD, depthToSearchAt)
+      print(move, rating)
 
-        ### Replaces the current move and lowest rating  
-        ### with the new move if it is lower rated 
-        if rating < currentBestEvaluation:
-          Makemove = move
-          currentBestEvaluation = rating
+      ### Replaces the current move and highest rating  
+      ### with the new move if it is higher rated 
+      if rating > alpha:
+        Makemove = move
+        alpha = rating
 
-        ### Undoes the move 
-        BOARD.pop()
-
-    else:
-      
-      ### Find all legal moves for the Bot and initialise current evaluation
-      currentBestEvaluation = -100000
-
-      ### Loops through elements, comparing them to find the highest rated move
-      for move in sorted(BOARD.generate_legal_moves(), key = blackSortingKey):
-
-        #### Plays the move and evaluates it
-        BOARD.push(move)
-        rating = ABmini(-10000, 10000, BOARD, depthToSearchAt)
-
-        #### Replaces the current move and highest rating  
-        #### with the new move if it is higher rated 
-        if rating > currentBestEvaluation:
-          Makemove = move
-          currentBestEvaluation = rating
-
-        #### Undoes the move 
-        BOARD.pop()
-
+      ### Undoes the move 
+      BOARD.pop()
+    
     ### Displays the move played as well as the board afterwards
     BOARD.push(Makemove)
     print("\nAI played:", Makemove.uci(), "\n")

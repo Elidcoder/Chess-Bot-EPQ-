@@ -21,14 +21,15 @@ pieceValues = {PAWN: {0:0.0,   1:0.0,   2:0.0,   3:0.0,   4:0.0,   5:0.0,   6:0.
 # Evaluation on a single board with no depth
 def evaluateBoard(board):
 
-  ## Start score at -0.5 which combined with giving white +1 if it's whites' 
-  ## turn, gives a bonus to the side whose turn it is.
-  score = -0.5
+  ## Gets the board value
+  score = 0
   for square,piece in board.piece_map().items():
     score += pieceValues[piece][square]
+
+  ## Returns the score relative to the player whose turn it is
   if board.turn:
-    score +=1
-  return score
+      return score
+  return -score
 
 # Evaluation of a move on board with no depth
 def evaluateMoveOnBoard(move, board):
@@ -46,54 +47,27 @@ def evaluateMoveOnBoard(move, board):
   board.pop()
   return score
 
-# Current player is trying to minimise their score (black)
-def ABmini(Alpha, Beta, board, depth):
-
+# This alphaBeta can be used as white or black so no need for max/min
+def alphaBeta(alpha, beta, board, depth):
+    
   ## If it's a draw score 0, if it's a checkmate score badly 
-  ## also further away mates are better than nearer mates 
-  if board.outcome():
-    if board.outcome().winner:
-      return 10000 - depth
-    return 0
-  
-  ## If depth is non-zero return the score using alpha - beta pruning
-  if depth:
-    for move in sorted(board.generate_legal_moves(), 
-                       key = lambda x: evaluateMoveOnBoard(x, board)):
-      board.push(move)
-      rating = ABmaxi(Alpha, Beta, board, depth-1)
-      board.pop()
-      if rating <= Alpha:
-        return Alpha
-      if rating < Beta:
-        Beta = rating
-    return Beta
-  
-  ## If depth is zero evaluate the board
-  return evaluateBoard(board)
-
-# Current player is trying to maximise their score (white)
-def ABmaxi(Alpha, Beta, board, depth):
-
-  ## If it's a draw score 0, if it's a checkmate score badly 
-  ## also further away mates are better than nearer mates 
+  ## also nearer mates are better than further away mates 
   if board.outcome():
     if board.outcome().winner:
       return -10000 + depth
     return 0
-  
-  ## If depth is non-zero return the highest scoring follow up move's score
+    
+  ## If depth is non-zero return the score using alpha - beta pruning
   if depth:
-    for move in sorted(board.generate_legal_moves(), 
-                       key = lambda x: - evaluateMoveOnBoard(x, board)):
-      board.push(move)
-      rating = ABmini(Alpha, Beta, board, depth-1)
+    for M in board.generate_legal_moves():
+      board.push(M)
+      rating = -alphaBeta(-beta, -alpha, board, depth - 1)
       board.pop()
-      if rating >= Beta:
-        return Beta
-      if rating > Alpha:
-        Alpha = rating
-    return Alpha
+      if rating >= beta:
+        return beta
+      if rating > alpha:
+        alpha = rating
+    return alpha
   
   ## If depth is zero evaluate the board
   return evaluateBoard(board)
