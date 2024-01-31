@@ -4,6 +4,9 @@ from os import system
 from Evaluation import alphaBeta, evaluateMoveOnBoard
 import Display_board as display
 
+# Define the depth to search at
+depthToSearchAt = 4
+
 # Convenient board displayer
 playerIsWhite = True
 def outputboard():
@@ -12,17 +15,17 @@ def outputboard():
   else:
     display.displayBoardAsBlack(BOARD)
 
-# Setup board, get the player colour and initial depth
+# Setup board, get the player colour and display the board 
 BOARD = chess.Board()
 colour = input("What colour are you?").upper()
 if colour not in ["WHITE","W"]:
   playerIsWhite = False
 outputboard()
-depthToSearchAt = 4
+
 
 # Assign each move its immediate value from whites perspective, 
 # this is flipped with reverse if the bot is black
-sortingKey = lambda x: - evaluateMoveOnBoard(x, BOARD)
+sortingKey = lambda move: - evaluateMoveOnBoard(move, BOARD)
 
 # If the bot is white and initial boardstate isn't over then the bot starts
 if not playerIsWhite and not BOARD.outcome():
