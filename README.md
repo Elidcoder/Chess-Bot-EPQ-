@@ -6,3 +6,9 @@ across too with some helpful commit messages.
 
 The purpose of this code was to implement some algorithms I discuss in my epq (Alpha - Beta pruning, Minimax, Quiescence searches etc.), whilst not 
 spending too much time reinventing the wheel.
+
+To run this project:
+  1) Clone the repositry
+  2) Install the 'chess' package (pip install chess)
+  3) Run the 'main' file
+  4) Enter moves and play a game.
