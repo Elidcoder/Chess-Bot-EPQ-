@@ -3,6 +3,7 @@ from tkinter import ttk
 import chess
 from evaluation import alpha_beta
 from typing import Optional, Tuple
+import threading
 
 # Board constants
 BOARD_DIM = 8
@@ -49,6 +50,7 @@ class ChessGUI:
         self.selected = None
         self.last_move = None
         self.square_size = DEFAULT_SQUARE_SIZE
+        self.ai_thinking = False
         
         # Configure root window
         self.root.grid_rowconfigure(0, weight=1)
@@ -201,6 +203,9 @@ class ChessGUI:
                                           fill=HIGHLIGHT_COLOR, outline='orange', width=2)
 
     def on_click(self, event):
+        # Ignore input while AI is thinking
+        if self.ai_thinking:
+            return
         res = self.square_clicked(event.x, event.y)
         if res is None:
             return
@@ -246,28 +251,63 @@ class ChessGUI:
                 self.draw_board()
 
     def ai_move(self):
-        """Execute AI move"""
-        if self.board.is_game_over():
-            self.update_status()
+        """Start non-blocking AI move calculation in a background thread."""
+        if self.board.is_game_over() or self.ai_thinking:
             return
-        best_move = None
-        alpha, beta = ALPHA_INIT, BETA_INIT
-        depth = DEFAULT_SEARCH_DEPTH
 
-        for move in self.board.legal_moves:
-            self.board.push(move)
-            score = -alpha_beta(-beta, -alpha, self.board, depth)
-            self.board.pop()
-            if best_move is None or score > alpha:
-                best_move = move
-                alpha = score
+        self.ai_thinking = True
+        board_fen = self.board.fen()
+        self.status.config(text="AI thinking...", foreground='black')
 
-        if best_move:
-            self.board.push(best_move)
-            self.last_move = best_move
+        def compute_best_move():
+            """Compute best move in background thread."""
+            try:
+                local_board = chess.Board(board_fen)
+                best_move = None
+                best_score = ALPHA_INIT
+                
+                for move in local_board.legal_moves:
+                    local_board.push(move)
+                    score = -alpha_beta(-BETA_INIT, -best_score, local_board, DEFAULT_SEARCH_DEPTH)
+                    local_board.pop()
+                    
+                    if score > best_score:
+                        best_move = move
+                        best_score = score
+                
+                # Schedule move application on main thread
+                self.root.after(0, lambda: self._apply_ai_move(best_move, board_fen))
+            except Exception as e:
+                # Handle errors by resetting state on main thread
+                self.root.after(0, lambda: self._handle_ai_error(e))
 
-        self.draw_board()
-        self.update_status()
+        # Start background computation
+        threading.Thread(target=compute_best_move, daemon=True).start()
+
+    def _apply_ai_move(self, move, original_fen):
+        """Apply AI move safely on the main thread."""
+        try:
+            # Verify board hasn't changed (race condition protection)
+            if self.board.fen() != original_fen:
+                self.ai_thinking = False
+                self.update_status()
+                return
+
+            if move and move in self.board.legal_moves:
+                self.board.push(move)
+                self.last_move = move
+
+            self.ai_thinking = False
+            self.draw_board()
+            self.update_status()
+        except Exception as e:
+            self._handle_ai_error(e)
+
+    def _handle_ai_error(self, error):
+        """Handle AI computation errors."""
+        self.ai_thinking = False
+        self.status.config(text=f"AI Error: {str(error)[:30]}...", foreground='red')
+        print(f"AI Error: {error}")  # Log for debugging
     
     def update_status(self):
         """Update the status label based on game state"""
@@ -286,6 +326,8 @@ class ChessGUI:
     
     def new_game(self):
         """Start a new game"""
+        # Reset AI thinking state first
+        self.ai_thinking = False
         self.board = chess.Board()
         self.selected = None
         self.last_move = None
@@ -294,6 +336,10 @@ class ChessGUI:
     
     def undo_move(self):
         """Undo the last two moves (player and AI)"""
+        # Don't allow undo while AI is thinking
+        if self.ai_thinking:
+            return
+            
         # Pop up to two moves safely
         pops = min(2, len(self.board.move_stack))
         for _ in range(pops):
