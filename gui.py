@@ -4,7 +4,7 @@ import chess
 from evaluation import alpha_beta
 from typing import Optional, Tuple
 
-# === Config / constants (remove magic numbers) ===
+# Board constants
 BOARD_DIM = 8
 DEFAULT_WINDOW_WIDTH = 600
 DEFAULT_WINDOW_HEIGHT = 700
@@ -12,36 +12,35 @@ MIN_WINDOW_WIDTH = 400
 MIN_WINDOW_HEIGHT = 500
 DEFAULT_SQUARE_SIZE = 60
 MIN_SQUARE_SIZE = 30
+APP_TITLE = "Chess Challenge"
 
-# AI search settings
+# Search parameters
 DEFAULT_SEARCH_DEPTH = 3
 ALPHA_INIT = -100000
 BETA_INIT = 100000
 
-# Color scheme
-LIGHT_SQUARE = '#F0D9B5'
-DARK_SQUARE = '#B58863'
+# Colors
+LIGHT_SQUARE    = '#F0D9B5'
+DARK_SQUARE     = '#B58863'
 HIGHLIGHT_COLOR = '#FFFF99'
-SELECTED_COLOR = '#90EE90'
+SELECTED_COLOR  = '#90EE90'
 LAST_MOVE_COLOR = '#FFE4B5'
+# White pieces bold
+WHITE_PIECE_COLOR = '#FFFFFF'
+# Black pieces thin 
+BLACK_PIECE_COLOR = '#000000'
 
-# Piece Unicode symbols (clean and consistent)
+# Piece Constants
+PIECE_FONT_NAME = 'Arial'
 PIECE_UNICODES = {
     'P': '♙', 'N': '♘', 'B': '♗', 'R': '♖', 'Q': '♕', 'K': '♔',
     'p': '♟', 'n': '♞', 'b': '♝', 'r': '♜', 'q': '♛', 'k': '♚',
 }
 
-# UI font & piece color constants
-PIECE_FONT_NAME = 'Arial'
-# White pieces render as white and thicker (bold)
-WHITE_PIECE_COLOR = '#FFFFFF'
-# Black pieces render as black and thinner (normal)
-BLACK_PIECE_COLOR = '#000000'
-
 class ChessGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title('Chess Bot - Player vs AI')
+        self.root.title(APP_TITLE)
         self.root.geometry(f'{DEFAULT_WINDOW_WIDTH}x{DEFAULT_WINDOW_HEIGHT}')
         self.root.minsize(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT)
         
@@ -92,7 +91,8 @@ class ChessGUI:
         # Initial draw
         self.root.after(100, self.draw_board)
 
-    # --- Helper utilities ---
+    # Helper function 
+    # Returns board size (Int) and the X & Y offsets (Int)
     def _board_size_and_offsets(self) -> Tuple[int, int, int]:
         board_size = self.square_size * BOARD_DIM
         canvas_w = self.canvas.winfo_width()
@@ -101,7 +101,9 @@ class ChessGUI:
         offset_y = (canvas_h - board_size) // 2 if canvas_h > board_size else 0
         return board_size, offset_x, offset_y
 
-    def _square_from_click(self, x: int, y: int) -> Optional[Tuple[int, int]]:
+    # Helper function
+    # Returns the square clicked if possible 
+    def square_clicked(self, x: int, y: int) -> Optional[Tuple[int, int]]:
         board_size, offset_x, offset_y = self._board_size_and_offsets()
         click_x = x - offset_x
         click_y = y - offset_y
@@ -113,9 +115,9 @@ class ChessGUI:
             return None
         return int(file_idx), int(rank_idx)
 
+    # Prefer the event size (fast) but fall back to canvas widget size
     def on_resize(self, event):
         """Handle canvas resize events"""
-        # Prefer the event size (fast) but fall back to canvas widget size
         try:
             canvas_width = event.width
             canvas_height = event.height
@@ -125,7 +127,7 @@ class ChessGUI:
 
         # Calculate square size based on available space
         size = min(canvas_width, canvas_height) // BOARD_DIM
-        self.square_size = max(MIN_SQUARE_SIZE, size)  # Minimum size
+        self.square_size = max(MIN_SQUARE_SIZE, size)
 
         self.draw_board()
     
@@ -133,10 +135,8 @@ class ChessGUI:
         """Draw the chess board with pieces"""
         self.canvas.delete('all')
 
-        # Calculate board dimensions and offsets
+        # Get font size based on square size
         board_size, offset_x, offset_y = self._board_size_and_offsets()
-
-        # Dynamic font size based on square size
         piece_font_size = max(16, int(self.square_size * 0.6))
         coord_font_size = max(8, int(self.square_size * 0.2))
         piece_font = (PIECE_FONT_NAME, piece_font_size)
@@ -148,34 +148,32 @@ class ChessGUI:
                 x0 = offset_x + file_idx * self.square_size
                 y0 = offset_y + rank_idx * self.square_size
                 x1 = x0 + self.square_size
-                y1 = y0 + self.square_size
+                y1 = y0 + self.square_size                
 
-                # Determine square color
-                is_light = (rank_idx + file_idx) % 2 == 0
-                color = LIGHT_SQUARE if is_light else DARK_SQUARE
-
-                # Highlight selected square
-                if self.selected and self.selected == (file_idx, rank_idx):
-                    color = SELECTED_COLOR
-
-                # Highlight last move
+                # Color squares
                 square = chess.square(file_idx, 7 - rank_idx)
                 if (self.last_move and 
                     (square == self.last_move.from_square or square == self.last_move.to_square)):
                     color = LAST_MOVE_COLOR
+                elif self.selected and self.selected == (file_idx, rank_idx):
+                    color = SELECTED_COLOR
+                else: 
+                    color = DARK_SQUARE if ((rank_idx + file_idx) % 2) else LIGHT_SQUARE
 
                 # Draw square
                 self.canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline='#8B4513', width=1)
 
-                # Draw coordinates
-                if file_idx == 0:  # Rank numbers on left
+                # Draw rank numbers
+                if file_idx == 0:
                     self.canvas.create_text(x0 + 5, y0 + 10, text=str(BOARD_DIM - rank_idx), 
                                           font=coord_font, fill='#654321', anchor='nw')
-                if rank_idx == BOARD_DIM - 1:  # File letters at bottom
+
+                # Draw file letters
+                if rank_idx == BOARD_DIM - 1:
                     self.canvas.create_text(x1 - 10, y1 - 5, text=chr(ord('a') + file_idx), 
                                           font=coord_font, fill='#654321', anchor='se')
 
-                # Draw piece: white pieces are bold+white, black pieces normal+black
+                # Draw pieces
                 piece = self.board.piece_at(square)
                 if piece:
                     piece_x = x0 + self.square_size // 2
@@ -189,7 +187,7 @@ class ChessGUI:
                     self.canvas.create_text(piece_x, piece_y, text=PIECE_UNICODES[piece.symbol()], 
                                           font=pf, fill=fill_color)
 
-        # Highlight possible moves for selected piece
+        # Highlight possible moves for piece
         if self.selected:
             from_square = chess.square(self.selected[0], 7 - self.selected[1])
             for move in self.board.legal_moves:
@@ -203,12 +201,12 @@ class ChessGUI:
                                           fill=HIGHLIGHT_COLOR, outline='orange', width=2)
 
     def on_click(self, event):
-        """Handle mouse clicks on the board"""
-        res = self._square_from_click(event.x, event.y)
+        res = self.square_clicked(event.x, event.y)
         if res is None:
             return
+
         file_idx, rank_idx = res
-        square = chess.square(file_idx, 7 - rank_idx)
+        square = chess.square(file_idx, BOARD_DIM - 1 - rank_idx)
         
         if self.selected is None:
             # Select a piece
@@ -218,7 +216,7 @@ class ChessGUI:
                 self.draw_board()
         else:
             # Try to make a move
-            from_square = chess.square(self.selected[0], 7 - self.selected[1])
+            from_square = chess.square(self.selected[0], BOARD_DIM - 1 - self.selected[1])
             
             # Check for promotion moves
             move = None
@@ -303,7 +301,7 @@ class ChessGUI:
 
         # Maintain last_move safely
         self.last_move = self.board.move_stack[-1] if self.board.move_stack else None
-        
+                               
         self.selected = None
         self.draw_board()
         self.update_status()
