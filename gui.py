@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 import chess
-from evaluation import alpha_beta
+from engine import get_default_engine, Engine
 from typing import Optional, Tuple
 import threading
 
@@ -46,7 +46,9 @@ class ChessGUI:
         self.root.minsize(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT)
         
         # Game state
-        self.board = chess.Board()
+        self.engine = get_default_engine(DEFAULT_SEARCH_DEPTH)
+        # keep a local reference to the engine's board for drawing convenience
+        self.board = self.engine.board
         self.selected = None
         self.last_move = None
         self.square_size = DEFAULT_SQUARE_SIZE
@@ -231,7 +233,9 @@ class ChessGUI:
                     break
             
             if move:
-                self.board.push(move)
+                # push to engine so internal state is authoritative
+                self.engine.push(move)
+                # board reference still points to engine.board
                 self.last_move = move
                 self.selected = None
                 self.draw_board()
@@ -256,27 +260,16 @@ class ChessGUI:
             return
 
         self.ai_thinking = True
-        board_fen = self.board.fen()
         self.status.config(text="AI thinking...", foreground='black')
 
         def compute_best_move():
-            """Compute best move in background thread."""
+            """Compute best move in background thread using the GUI's engine directly."""
             try:
-                local_board = chess.Board(board_fen)
-                best_move = None
-                best_score = ALPHA_INIT
-                
-                for move in local_board.legal_moves:
-                    local_board.push(move)
-                    score = -alpha_beta(-BETA_INIT, -best_score, local_board, DEFAULT_SEARCH_DEPTH)
-                    local_board.pop()
-                    
-                    if score > best_score:
-                        best_move = move
-                        best_score = score
-                
+                # Use the GUI's engine directly - it stores the current position
+                uci = self.engine.find_best_move()
+                best_move = chess.Move.from_uci(uci) if uci else None
                 # Schedule move application on main thread
-                self.root.after(0, lambda: self._apply_ai_move(best_move, board_fen))
+                self.root.after(0, lambda: self._apply_ai_move(best_move))
             except Exception as e:
                 # Handle errors by resetting state on main thread
                 self.root.after(0, lambda: self._handle_ai_error(e))
@@ -284,21 +277,21 @@ class ChessGUI:
         # Start background computation
         threading.Thread(target=compute_best_move, daemon=True).start()
 
-    def _apply_ai_move(self, move, original_fen):
+    def _apply_ai_move(self, move):
         """Apply AI move safely on the main thread."""
         try:
-            # Verify board hasn't changed (race condition protection)
-            if self.board.fen() != original_fen:
-                self.ai_thinking = False
-                self.update_status()
-                return
-
-            if move and move in self.board.legal_moves:
-                self.board.push(move)
+            if move and move in self.engine.legal_moves():
+                # apply using the engine so it remains authoritative
+                self.engine.push(move)
+                # ensure local board reference still points to the same object
+                self.board = self.engine.board
                 self.last_move = move
 
             self.ai_thinking = False
             self.draw_board()
+            self.update_status()
+        except Exception as e:
+            self._handle_ai_error(e)
             self.update_status()
         except Exception as e:
             self._handle_ai_error(e)
@@ -328,7 +321,8 @@ class ChessGUI:
         """Start a new game"""
         # Reset AI thinking state first
         self.ai_thinking = False
-        self.board = chess.Board()
+        self.engine.reset()
+        self.board = self.engine.board  # keep reference in sync
         self.selected = None
         self.last_move = None
         self.draw_board()
@@ -340,13 +334,13 @@ class ChessGUI:
         if self.ai_thinking:
             return
             
-        # Pop up to two moves safely
-        pops = min(2, len(self.board.move_stack))
+        # Pop up to two moves safely using the engine
+        pops = min(2, len(self.engine.board.move_stack))
         for _ in range(pops):
-            self.board.pop()
+            self.engine.pop()
 
         # Maintain last_move safely
-        self.last_move = self.board.move_stack[-1] if self.board.move_stack else None
+        self.last_move = self.engine.board.move_stack[-1] if self.engine.board.move_stack else None
                                
         self.selected = None
         self.draw_board()
