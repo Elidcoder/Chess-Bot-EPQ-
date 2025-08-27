@@ -47,8 +47,7 @@ class ChessGUI:
         
         # Game state
         self.engine = get_default_engine(DEFAULT_SEARCH_DEPTH)
-        # keep a local reference to the engine's board for drawing convenience
-        self.board = self.engine.board
+        self.display_board = chess.Board(self.engine.board.fen())
         self.selected = None
         self.last_move = None
         self.square_size = DEFAULT_SQUARE_SIZE
@@ -63,6 +62,7 @@ class ChessGUI:
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         main_frame.grid_rowconfigure(1, weight=1)
         main_frame.grid_columnconfigure(0, weight=1)
+        main_frame.grid_columnconfigure(1, weight=0)
         
         # Status frame
         status_frame = ttk.Frame(main_frame)
@@ -87,6 +87,19 @@ class ChessGUI:
         
         self.canvas = tk.Canvas(canvas_frame, bg='white')
         self.canvas.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+
+        # Captured pieces panel (right side)
+        side_frame = ttk.Frame(main_frame, padding=(8,0))
+        side_frame.grid(row=1, column=1, sticky=(tk.N, tk.S, tk.E), padx=(10,0))
+
+        ttk.Label(side_frame, text="Captured", font=(PIECE_FONT_NAME, 12, 'bold')).grid(row=0, column=0, pady=(0,6))
+        ttk.Label(side_frame, text="White's captures:", font=(PIECE_FONT_NAME, 10)).grid(row=1, column=0, sticky='w')
+        self.captured_white_label = ttk.Label(side_frame, text="", font=(PIECE_FONT_NAME, 14))
+        self.captured_white_label.grid(row=2, column=0, sticky='w', pady=(2,8))
+
+        ttk.Label(side_frame, text="Black's captures:", font=(PIECE_FONT_NAME, 10)).grid(row=3, column=0, sticky='w')
+        self.captured_black_label = ttk.Label(side_frame, text="", font=(PIECE_FONT_NAME, 14))
+        self.captured_black_label.grid(row=4, column=0, sticky='w', pady=(2,8))
         
         # Bind events
         self.canvas.bind('<Button-1>', self.on_click)
@@ -118,6 +131,33 @@ class ChessGUI:
         if not (0 <= file_idx < BOARD_DIM and 0 <= rank_idx < BOARD_DIM):
             return None
         return int(file_idx), int(rank_idx)
+
+    def update_captured_panel(self):
+        """Update the captured pieces labels based on material missing from board."""
+        # Count pieces on the board snapshot 
+        piece_map = self.display_board.piece_map()
+        counts = {}
+        for sq, piece in piece_map.items():
+            counts[piece.symbol()] = counts.get(piece.symbol(), 0) + 1
+
+        # All starting counts
+        start = {'P':8,'N':2,'B':2,'R':2,'Q':1,'K':1,'p':8,'n':2,'b':2,'r':2,'q':1,'k':1}
+
+        white_captured = []
+        black_captured = []
+        # Find missing whites
+        for sym, total in start.items():
+            have = counts.get(sym, 0)
+            missing = total - have
+            if missing > 0:
+                if sym.isupper():
+                    # white piece missing -> black captured
+                    black_captured += [PIECE_UNICODES[sym.lower()] for _ in range(missing)]
+                else:
+                    white_captured += [PIECE_UNICODES[sym] for _ in range(missing)]
+
+        self.captured_white_label.config(text=' '.join(white_captured) or 'None')
+        self.captured_black_label.config(text=' '.join(black_captured) or 'None')
 
     # Prefer the event size (fast) but fall back to canvas widget size
     def on_resize(self, event):
@@ -178,7 +218,7 @@ class ChessGUI:
                                           font=coord_font, fill='#654321', anchor='se')
 
                 # Draw pieces
-                piece = self.board.piece_at(square)
+                piece = self.display_board.piece_at(square)
                 if piece:
                     piece_x = x0 + self.square_size // 2
                     piece_y = y0 + self.square_size // 2
@@ -194,7 +234,7 @@ class ChessGUI:
         # Highlight possible moves for piece
         if self.selected:
             from_square = chess.square(self.selected[0], 7 - self.selected[1])
-            for move in self.board.legal_moves:
+            for move in self.display_board.legal_moves:
                 if move.from_square == from_square:
                     to_file = chess.square_file(move.to_square)
                     to_rank = 7 - chess.square_rank(move.to_square)
@@ -203,6 +243,9 @@ class ChessGUI:
                     radius = max(4, self.square_size // 8)
                     self.canvas.create_oval(x - radius, y - radius, x + radius, y + radius, 
                                           fill=HIGHLIGHT_COLOR, outline='orange', width=2)
+
+        # Update captured pieces panel
+        self.update_captured_panel()
 
     def on_click(self, event):
         # Ignore input while AI is thinking
@@ -217,7 +260,7 @@ class ChessGUI:
         
         if self.selected is None:
             # Select a piece
-            piece = self.board.piece_at(square)
+            piece = self.display_board.piece_at(square)
             if piece and piece.color == chess.WHITE:
                 self.selected = (file_idx, rank_idx)
                 self.draw_board()
@@ -227,7 +270,7 @@ class ChessGUI:
             
             # Check for promotion moves
             move = None
-            for legal_move in self.board.legal_moves:
+            for legal_move in self.display_board.legal_moves:
                 if legal_move.from_square == from_square and legal_move.to_square == square:
                     move = legal_move
                     break
@@ -235,19 +278,20 @@ class ChessGUI:
             if move:
                 # push to engine so internal state is authoritative
                 self.engine.push(move)
-                # board reference still points to engine.board
+                # refresh display board from engine after the move
+                self.display_board = chess.Board(self.engine.board.fen())
                 self.last_move = move
                 self.selected = None
                 self.draw_board()
 
-                if self.board.is_game_over():
+                if self.display_board.is_game_over():
                     self.update_status()
                 else:
                     self.status.config(text="AI thinking...")
                     self.root.after(100, self.ai_move)
             else:
                 # Invalid move, try to select new piece
-                piece = self.board.piece_at(square)
+                piece = self.display_board.piece_at(square)
                 if piece and piece.color == chess.WHITE:
                     self.selected = (file_idx, rank_idx)
                 else:
@@ -256,7 +300,7 @@ class ChessGUI:
 
     def ai_move(self):
         """Start non-blocking AI move calculation in a background thread."""
-        if self.board.is_game_over() or self.ai_thinking:
+        if self.display_board.is_game_over() or self.ai_thinking:
             return
 
         self.ai_thinking = True
@@ -271,7 +315,6 @@ class ChessGUI:
                 # Schedule move application on main thread
                 self.root.after(0, lambda: self._apply_ai_move(best_move))
             except Exception as e:
-                # Handle errors by resetting state on main thread
                 self.root.after(0, lambda: self._handle_ai_error(e))
 
         # Start background computation
@@ -283,8 +326,8 @@ class ChessGUI:
             if move and move in self.engine.legal_moves():
                 # apply using the engine so it remains authoritative
                 self.engine.push(move)
-                # ensure local board reference still points to the same object
-                self.board = self.engine.board
+                # refresh display board from engine after move
+                self.display_board = chess.Board(self.engine.board.fen())
                 self.last_move = move
 
             self.ai_thinking = False
@@ -304,15 +347,15 @@ class ChessGUI:
     
     def update_status(self):
         """Update the status label based on game state"""
-        if self.board.is_game_over():
-            outcome = self.board.outcome()
+        if self.display_board.is_game_over():
+            outcome = self.display_board.outcome()
             if outcome.winner is None:
                 self.status.config(text="Game Over - Draw!", foreground='blue')
             elif outcome.winner == chess.WHITE:
                 self.status.config(text="Game Over - White Wins!", foreground='green')
             else:
                 self.status.config(text="Game Over - Black Wins!", foreground='red')
-        elif self.board.turn == chess.WHITE:
+        elif self.display_board.turn == chess.WHITE:
             self.status.config(text="White to move", foreground='black')
         else:
             self.status.config(text="Black to move", foreground='black')
@@ -322,7 +365,7 @@ class ChessGUI:
         # Reset AI thinking state first
         self.ai_thinking = False
         self.engine.reset()
-        self.board = self.engine.board  # keep reference in sync
+        self.display_board = chess.Board(self.engine.board.fen())
         self.selected = None
         self.last_move = None
         self.draw_board()
@@ -339,7 +382,8 @@ class ChessGUI:
         for _ in range(pops):
             self.engine.pop()
 
-        # Maintain last_move safely
+        # refresh display board and last_move
+        self.display_board = chess.Board(self.engine.board.fen())
         self.last_move = self.engine.board.move_stack[-1] if self.engine.board.move_stack else None
                                
         self.selected = None
