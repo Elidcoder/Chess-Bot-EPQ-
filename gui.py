@@ -133,31 +133,34 @@ class ChessGUI:
         return int(file_idx), int(rank_idx)
 
     def update_captured_panel(self):
-        """Update the captured pieces labels based on material missing from board."""
-        # Count pieces on the board snapshot 
-        piece_map = self.display_board.piece_map()
-        counts = {}
-        for sq, piece in piece_map.items():
-            counts[piece.symbol()] = counts.get(piece.symbol(), 0) + 1
+        """Update the captured pieces labels using engine's capture counts.
 
-        # All starting counts
-        start = {'P':8,'N':2,'B':2,'R':2,'Q':1,'K':1,'p':8,'n':2,'b':2,'r':2,'q':1,'k':1}
+        Display format: '♟ * 6, ♛ * 1' etc. If none captured, show 'None'.
+        """
+        try:
+            white_caps = self.engine.get_captured_by_white()
+            black_caps = self.engine.get_captured_by_black()
+        except Exception:
+            # Fallback to previous board-diff method if engine doesn't provide captures
+            white_caps = {}
+            black_caps = {}
 
-        white_captured = []
-        black_captured = []
-        # Find missing whites
-        for sym, total in start.items():
-            have = counts.get(sym, 0)
-            missing = total - have
-            if missing > 0:
-                if sym.isupper():
-                    # white piece missing -> black captured
-                    black_captured += [PIECE_UNICODES[sym.lower()] for _ in range(missing)]
-                else:
-                    white_captured += [PIECE_UNICODES[sym] for _ in range(missing)]
+        def render_caps(cap_map):
+            parts = []
+            # Order by piece value/priority for consistent display
+            order = ['k', 'q', 'r', 'b', 'n', 'p']
+            for sym in order:
+                cnt = cap_map.get(sym, 0)
+                if cnt > 0:
+                    # piece unicode map expects lowercase for black pieces; use mapping
+                    uni = PIECE_UNICODES[sym]
+                    parts.append(f"{uni} * {cnt}")
+            return ', '.join(parts) if parts else 'None'
 
-        self.captured_white_label.config(text=' '.join(white_captured) or 'None')
-        self.captured_black_label.config(text=' '.join(black_captured) or 'None')
+        # white_caps are black pieces taken (captured by white)
+        self.captured_white_label.config(text=render_caps(white_caps))
+        # black_caps are white pieces taken (captured by black)
+        self.captured_black_label.config(text=render_caps(black_caps))
 
     # Prefer the event size (fast) but fall back to canvas widget size
     def on_resize(self, event):
@@ -315,7 +318,9 @@ class ChessGUI:
                 # Schedule move application on main thread
                 self.root.after(0, lambda: self._apply_ai_move(best_move))
             except Exception as e:
-                self.root.after(0, lambda: self._handle_ai_error(e))
+                # Capture the exception into the lambda default to avoid referencing
+                # the exception variable after the except block (it is cleared).
+                self.root.after(0, lambda err=e: self._handle_ai_error(err))
 
         # Start background computation
         threading.Thread(target=compute_best_move, daemon=True).start()
@@ -343,7 +348,8 @@ class ChessGUI:
         """Handle AI computation errors."""
         self.ai_thinking = False
         self.status.config(text=f"AI Error: {str(error)[:30]}...", foreground='red')
-        print(f"AI Error: {error}")  # Log for debugging
+        # Debugging
+        print(f"AI Error: {error}")
     
     def update_status(self):
         """Update the status label based on game state"""
