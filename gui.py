@@ -201,7 +201,7 @@ class ChessGUI:
         return board_size, offset_x, offset_y
 
     def _get_clicked_square(self, x: int, y: int) -> Optional[Tuple[int, int]]:
-        """Convert canvas coordinates to board square indices."""
+        """Convert canvas coordinates to display square indices."""
         board_size, offset_x, offset_y = self._calculate_board_metrics()
         
         # Adjust for board offset
@@ -212,14 +212,14 @@ class ChessGUI:
         if not (0 <= click_x < board_size and 0 <= click_y < board_size):
             return None
             
-        # Convert to square indices
-        file_idx = click_x // self.square_size
-        rank_idx = click_y // self.square_size
+        # Convert to display square indices
+        display_file = click_x // self.square_size
+        display_rank = click_y // self.square_size
         
-        if not (0 <= file_idx < BOARD_DIM and 0 <= rank_idx < BOARD_DIM):
+        if not (0 <= display_file < BOARD_DIM and 0 <= display_rank < BOARD_DIM):
             return None
             
-        return int(file_idx), int(rank_idx)
+        return int(display_file), int(display_rank)
 
     def _calculate_font_sizes(self) -> Tuple[int, int]:
         """Calculate appropriate font sizes based on square size."""
@@ -227,45 +227,72 @@ class ChessGUI:
         coord_font_size = max(MIN_COORD_FONT_SIZE, int(self.square_size * COORD_FONT_SCALE))
         return piece_font_size, coord_font_size
 
-    def _get_square_color(self, file_idx: int, rank_idx: int, square: int) -> str:
+    def _get_square_color(self, display_file: int, display_rank: int, square: int) -> str:
         """Determine the display color for a board square."""
         # Check for last move highlight
         if (self.last_move and 
             square in (self.last_move.from_square, self.last_move.to_square)):
             return LAST_MOVE_COLOR
             
-        # Check for selection highlight
-        if self.selected and self.selected == (file_idx, rank_idx):
+        # Check for selection highlight (selected coordinates are in display space)
+        if self.selected and self.selected == (display_file, display_rank):
             return SELECTED_COLOR
             
-        # Standard checkerboard pattern
-        return DARK_SQUARE if (rank_idx + file_idx) % 2 else LIGHT_SQUARE
+        # Standard checkerboard pattern based on chess coordinates
+        chess_file = chess.square_file(square)
+        chess_rank = chess.square_rank(square)
+        return DARK_SQUARE if (chess_rank + chess_file) % 2 else LIGHT_SQUARE
+
+    def _get_display_coordinates(self, file_idx: int, rank_idx: int) -> Tuple[int, int]:
+        """Convert chess board coordinates to display coordinates based on player color.
+        
+        For White player: a1 at bottom-left (standard orientation)
+        For Black player: a8 at bottom-left (flipped orientation)
+        """
+        if self.player_color == chess.WHITE:
+            # White oreantation
+            return file_idx, BOARD_DIM - 1 - rank_idx
+        else:
+            # Black orientation
+            return BOARD_DIM - 1 - file_idx, rank_idx
+
+    def _get_chess_coordinates_from_display(self, display_file: int, display_rank: int) -> Tuple[int, int]:
+        """Convert display coordinates back to chess board coordinates."""
+        if self.player_color == chess.WHITE:
+            return display_file, BOARD_DIM - 1 - display_rank
+        else:
+            return BOARD_DIM - 1 - display_file, display_rank
 
     def _draw_square_and_coordinates(self, file_idx: int, rank_idx: int, 
                                    offset_x: int, offset_y: int, coord_font):
         """Draw a single board square with coordinates."""
-        x0 = offset_x + file_idx * self.square_size
-        y0 = offset_y + rank_idx * self.square_size
+        # Calculate display positions
+        display_file, display_rank = self._get_display_coordinates(file_idx, rank_idx)
+        
+        x0 = offset_x + display_file * self.square_size
+        y0 = offset_y + display_rank * self.square_size
         x1 = x0 + self.square_size
         y1 = y0 + self.square_size
         
-        square = chess.square(file_idx, 7 - rank_idx)
-        color = self._get_square_color(file_idx, rank_idx, square)
+        square = chess.square(file_idx, rank_idx)
+        color = self._get_square_color(display_file, display_rank, square)
         
         # Draw square
         self.canvas.create_rectangle(x0, y0, x1, y1, fill=color, 
                                    outline=BOARD_OUTLINE_COLOR, width=1)
         
-        # Draw rank numbers (left edge)
-        if file_idx == 0:
+        # Draw rank numbers (left edge) - show chess rank (1-8)
+        if display_file == 0:
+            chess_rank = rank_idx + 1 if self.player_color == chess.WHITE else (8 - rank_idx)
             self.canvas.create_text(x0 + COORD_OFFSET, y0 + COORD_OFFSET, 
-                                  text=str(BOARD_DIM - rank_idx),
+                                  text=str(chess_rank),
                                   font=coord_font, fill=COORD_TEXT_COLOR, anchor='nw')
         
-        # Draw file letters (bottom edge)
-        if rank_idx == BOARD_DIM - 1:
+        # Draw file letters (bottom edge) - show chess file (a-h)
+        if display_rank == BOARD_DIM - 1:
+            chess_file = file_idx if self.player_color == chess.WHITE else (7 - file_idx)
             self.canvas.create_text(x1 - COORD_CORNER_OFFSET, y1 - COORD_OFFSET,
-                                  text=chr(ord('a') + file_idx),
+                                  text=chr(ord('a') + chess_file),
                                   font=coord_font, fill=COORD_TEXT_COLOR, anchor='se')
 
     def _draw_piece(self, square: int, file_idx: int, rank_idx: int,
@@ -274,9 +301,12 @@ class ChessGUI:
         piece = self.display_board.piece_at(square)
         if not piece:
             return
-            
-        piece_x = offset_x + file_idx * self.square_size + self.square_size // 2
-        piece_y = offset_y + rank_idx * self.square_size + self.square_size // 2
+        
+        # Convert to display coordinates
+        display_file, display_rank = self._get_display_coordinates(file_idx, rank_idx)
+        
+        piece_x = offset_x + display_file * self.square_size + self.square_size // 2
+        piece_y = offset_y + display_rank * self.square_size + self.square_size // 2
         
         # Choose font weight and color based on piece color
         if piece.color == chess.WHITE:
@@ -294,17 +324,24 @@ class ChessGUI:
         if not self.selected:
             return
             
-        from_square = chess.square(self.selected[0], 7 - self.selected[1])
+        # Convert selected display coordinates back to chess coordinates
+        selected_file, selected_rank = self._get_chess_coordinates_from_display(
+            self.selected[0], self.selected[1])
+        from_square = chess.square(selected_file, selected_rank)
         
         for move in self.display_board.legal_moves:
             if move.from_square != from_square:
                 continue
                 
+            # Get chess coordinates of the target square
             to_file = chess.square_file(move.to_square)
-            to_rank = BOARD_DIM - 1 - chess.square_rank(move.to_square)
+            to_rank = chess.square_rank(move.to_square)
             
-            center_x = offset_x + to_file * self.square_size + self.square_size // 2
-            center_y = offset_y + to_rank * self.square_size + self.square_size // 2
+            # Convert to display coordinates
+            display_file, display_rank = self._get_display_coordinates(to_file, to_rank)
+            
+            center_x = offset_x + display_file * self.square_size + self.square_size // 2
+            center_y = offset_y + display_rank * self.square_size + self.square_size // 2
             radius = max(4, self.square_size // HIGHLIGHT_RADIUS_SCALE)
             
             self.canvas.create_oval(center_x - radius, center_y - radius,
@@ -367,7 +404,7 @@ class ChessGUI:
                 self._draw_square_and_coordinates(file_idx, rank_idx, offset_x, offset_y, coord_font)
                 
                 # Draw piece if present
-                square = chess.square(file_idx, BOARD_DIM - 1 - rank_idx)
+                square = chess.square(file_idx, rank_idx)
                 self._draw_piece(square, file_idx, rank_idx, offset_x, offset_y, piece_font_size)
 
         # Draw move highlights
@@ -385,24 +422,31 @@ class ChessGUI:
         if clicked_square is None:
             return
 
-        file_idx, rank_idx = clicked_square
-        square = chess.square(file_idx, BOARD_DIM - 1 - rank_idx)
+        # clicked_square contains display coordinates
+        display_file, display_rank = clicked_square
+        
+        # Convert to chess coordinates
+        chess_file, chess_rank = self._get_chess_coordinates_from_display(display_file, display_rank)
+        square = chess.square(chess_file, chess_rank)
         
         if self.selected is None:
-            self._handle_piece_selection(square, file_idx, rank_idx)
+            self._handle_piece_selection(square, display_file, display_rank)
         else:
-            self._handle_move_attempt(square, file_idx, rank_idx)
+            self._handle_move_attempt(square, display_file, display_rank)
 
-    def _handle_piece_selection(self, square: int, file_idx: int, rank_idx: int):
+    def _handle_piece_selection(self, square: int, display_file: int, display_rank: int):
         """Handle selection of a piece."""
         piece = self.display_board.piece_at(square)
         if piece and piece.color == self.player_color:
-            self.selected = (file_idx, rank_idx)
+            self.selected = (display_file, display_rank)  # Store display coordinates
             self.draw_board()
 
-    def _handle_move_attempt(self, target_square: int, file_idx: int, rank_idx: int):
+    def _handle_move_attempt(self, target_square: int, display_file: int, display_rank: int):
         """Handle attempt to move the selected piece."""
-        from_square = chess.square(self.selected[0], BOARD_DIM - 1 - self.selected[1])
+        # Convert selected display coordinates to chess coordinates
+        selected_chess_file, selected_chess_rank = self._get_chess_coordinates_from_display(
+            self.selected[0], self.selected[1])
+        from_square = chess.square(selected_chess_file, selected_chess_rank)
         
         # Find matching legal move
         move = self._find_legal_move(from_square, target_square)
@@ -410,7 +454,7 @@ class ChessGUI:
         if move:
             self._execute_player_move(move)
         else:
-            self._handle_invalid_move(target_square, file_idx, rank_idx)
+            self._handle_invalid_move(target_square, display_file, display_rank)
 
     def _find_legal_move(self, from_square: int, to_square: int) -> Optional[chess.Move]:
         """Find a legal move matching the from and to squares."""
@@ -438,11 +482,11 @@ class ChessGUI:
             self.status.config(text="AI thinking...")
             self.root.after(AI_MOVE_DELAY, self.ai_move)
 
-    def _handle_invalid_move(self, target_square: int, file_idx: int, rank_idx: int):
+    def _handle_invalid_move(self, target_square: int, display_file: int, display_rank: int):
         """Handle invalid move attempt by reselecting or deselecting."""
         piece = self.display_board.piece_at(target_square)
         if piece and piece.color == self.player_color:
-            self.selected = (file_idx, rank_idx)
+            self.selected = (display_file, display_rank)
         else:
             self.selected = None
         self.draw_board()
