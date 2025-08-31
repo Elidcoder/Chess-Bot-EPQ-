@@ -37,16 +37,13 @@ class HomePage:
         # Callbacks
         self.on_play_white: Optional[Callable[[], None]] = None
         self.on_play_black: Optional[Callable[[], None]] = None
-        self.on_quit: Optional[Callable[[], None]] = None
         
     def set_callbacks(self, 
                      on_play_white: Callable[[], None],
-                     on_play_black: Callable[[], None], 
-                     on_quit: Callable[[], None]):
+                     on_play_black: Callable[[], None]):
         """Set callback functions for button actions."""
         self.on_play_white = on_play_white
         self.on_play_black = on_play_black
-        self.on_quit = on_quit
         
     def show(self):
         """Display the home page."""
@@ -91,8 +88,7 @@ class HomePage:
         # Game option buttons
         button_configs = [
             ('♔ Play as White', self._handle_play_white, 0),
-            ('♛ Play as Black', self._handle_play_black, 1),
-            ('Quit', self._handle_quit, 2)
+            ('♛ Play as Black', self._handle_play_black, 1)
         ]
         
         for text, command, row in button_configs:
@@ -113,8 +109,3 @@ class HomePage:
         """Handle Play as Black button click.""" 
         if self.on_play_black:
             self.on_play_black()
-            
-    def _handle_quit(self):
-        """Handle Quit button click."""
-        if self.on_quit:
-            self.on_quit()

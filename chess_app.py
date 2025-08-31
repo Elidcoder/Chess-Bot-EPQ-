@@ -11,8 +11,9 @@ import chess
 import threading
 from typing import Optional
 
-from engine import get_default_engine, Engine
+from engine import Engine, DEFAULT_SEARCH_DEPTH
 from board_renderer import BoardRenderer
+from constants import PIECE_UNICODES, CAPTURE_ORDER
 from home_page import HomePage
 
 # Application constants
@@ -45,12 +46,7 @@ BUTTON_PADDING = 5
 BORDER_WIDTH = 2
 
 # Captured pieces display
-CAPTURE_ORDER = ['k', 'q', 'r', 'b', 'n', 'p']
 MAX_ERROR_DISPLAY_LENGTH = 30
-PIECE_UNICODES = {
-    'P': '♙', 'N': '♘', 'B': '♗', 'R': '♖', 'Q': '♕', 'K': '♔',
-    'p': '♟', 'n': '♞', 'b': '♝', 'r': '♜', 'q': '♛', 'k': '♚',
-}
 
 
 class ChessApp:
@@ -58,7 +54,7 @@ class ChessApp:
     
     def __init__(self):
         self.root = tk.Tk()
-        self.engine: Optional[Engine] = None
+        self.engine = None  # Will hold engine instance
         self.board_renderer: Optional[BoardRenderer] = None
         self.home_page: Optional[HomePage] = None
         
@@ -67,7 +63,6 @@ class ChessApp:
         
         # Game state
         self.player_color = chess.WHITE
-        self.current_board: Optional[chess.Board] = None
         self.selected_display_coords: Optional[tuple] = None
         self.ai_thinking = False
         
@@ -113,8 +108,7 @@ class ChessApp:
         self.home_page = HomePage(self.root, APP_TITLE)
         self.home_page.set_callbacks(
             on_play_white=lambda: self._start_game(chess.WHITE),
-            on_play_black=lambda: self._start_game(chess.BLACK),
-            on_quit=self._quit_application
+            on_play_black=lambda: self._start_game(chess.BLACK)
         )
         self.home_page.show()
         
@@ -133,10 +127,10 @@ class ChessApp:
         """Start a new chess game with the specified player color."""
         self.player_color = player_color
         
-        # Initialize engine and get starting board
-        self.engine = get_default_engine(DEFAULT_SEARCH_DEPTH)
+        # Initialize engine
+        # Create engine directly
+        self.engine = Engine(DEFAULT_SEARCH_DEPTH)
         self.engine.resetboard()
-        self.current_board = self.engine.get_board_copy()
         
         # Clear start screen and create game UI
         for widget in self.root.winfo_children():
@@ -157,7 +151,7 @@ class ChessApp:
         self.root.after(INITIAL_DRAW_DELAY, self._refresh_display)
         
         # Start AI if it should move first
-        if self.current_board.turn != self.player_color:
+        if self.engine.get_current_board().turn != self.player_color:
             self.root.after(AI_START_DELAY, self._start_ai_move)
 
     def _create_game_interface(self):
@@ -183,10 +177,8 @@ class ChessApp:
         buttons_frame.grid(row=1, column=0, pady=(BUTTON_PADDING, 0))
 
         button_configs = [
-            ("New Game", self._new_game),
             ("Undo Move", self._undo_move),
-            ("End Game", self._end_game),
-            ("Quit", self.root.destroy)
+            ("End Game", self._end_game)
         ]
         
         for col, (text, command) in enumerate(button_configs):
@@ -223,16 +215,14 @@ class ChessApp:
 
     def _refresh_display(self):
         """Refresh the board display and status."""
-        if not self.board_renderer or not self.current_board:
+        if not self.board_renderer or not self.engine:
             return
             
-        # Get last move from engine
-        last_move = None
-        if self.engine and self.engine.board.move_stack:
-            last_move = self.engine.board.move_stack[-1]
+        current_board = self.engine.get_current_board()
+        last_move = self.engine.get_last_move()
             
         self.board_renderer.render_board(
-            self.current_board, 
+            current_board, 
             self.selected_display_coords, 
             last_move
         )
@@ -242,9 +232,11 @@ class ChessApp:
 
     def _on_square_clicked(self, display_file: int, display_rank: int):
         """Handle square clicks from the board renderer."""
-        if self.ai_thinking:
+        if self.ai_thinking or not self.engine:
             return
             
+        current_board = self.engine.get_current_board()
+        
         # Convert display coordinates to chess coordinates
         chess_file, chess_rank = self.board_renderer.get_chess_coordinates_from_display(
             display_file, display_rank)
@@ -252,7 +244,7 @@ class ChessApp:
         
         if self.selected_display_coords is None:
             # Try to select a piece
-            piece = self.current_board.piece_at(chess_square)
+            piece = current_board.piece_at(chess_square)
             if piece and piece.color == self.player_color:
                 self.selected_display_coords = (display_file, display_rank)
                 self._refresh_display()
@@ -269,7 +261,7 @@ class ChessApp:
                 self._execute_player_move(move)
             else:
                 # Invalid move - try selecting new piece or deselect
-                piece = self.current_board.piece_at(chess_square)
+                piece = current_board.piece_at(chess_square)
                 if piece and piece.color == self.player_color:
                     self.selected_display_coords = (display_file, display_rank)
                 else:
@@ -279,13 +271,14 @@ class ChessApp:
     def _on_resize(self):
         """Handle board resize events from the renderer."""
         # Update status and captured panel to ensure they stay consistent
-        if self.current_board:
+        if self.engine:
             self._update_status()
             self._update_captured_panel()
 
     def _find_legal_move(self, from_square: int, to_square: int) -> Optional[chess.Move]:
         """Find a legal move matching the from and to squares."""
-        for legal_move in self.current_board.legal_moves:
+        current_board = self.engine.get_current_board()
+        for legal_move in current_board.legal_moves:
             if (legal_move.from_square == from_square and 
                 legal_move.to_square == to_square):
                 return legal_move
@@ -294,19 +287,20 @@ class ChessApp:
     def _execute_player_move(self, move: chess.Move):
         """Execute a player move and trigger AI response."""
         try:
-            self.current_board = self.engine.makemove(move)
-            self.selected_display_coords = None
-            
-            self._refresh_display()
-            
-            # Handle game continuation
-            if self.current_board.is_game_over():
-                self._update_status()
-            else:
-                self.status_label.config(text="AI thinking...")
-                self.root.after(AI_MOVE_DELAY, self._start_ai_move)
+            # Make move in engine (this updates both engine board and game stack)
+            if self.engine.make_move(move):
+                self.selected_display_coords = None
+                self._refresh_display()
                 
-        except ValueError as e:
+                # Handle game continuation
+                current_board = self.engine.get_current_board()
+                if current_board.is_game_over():
+                    self._update_status()
+                else:
+                    self.status_label.config(text="AI thinking...")
+                    self.root.after(AI_MOVE_DELAY, self._start_ai_move)
+                    
+        except Exception as e:
             # Invalid move
             print(f"Invalid move: {e}")
             self.selected_display_coords = None
@@ -314,7 +308,11 @@ class ChessApp:
 
     def _start_ai_move(self):
         """Start AI move calculation in a background thread."""
-        if self.current_board.is_game_over() or self.ai_thinking:
+        if not self.engine:
+            return
+            
+        current_board = self.engine.get_current_board()
+        if current_board.is_game_over() or self.ai_thinking:
             return
 
         self.ai_thinking = True
@@ -323,7 +321,7 @@ class ChessApp:
         def compute_move():
             """Background thread function to compute AI move."""
             try:
-                best_move = self.engine.get_best_move(cancel_token=self.ai_cancel_token)
+                best_move = self.engine.find_best_move(cancel_token=self.ai_cancel_token)
                 if not self.ai_cancel_token.is_set():
                     self.root.after(0, lambda move=best_move: self._apply_ai_move(move))
             except Exception as error:
@@ -335,8 +333,16 @@ class ChessApp:
     def _apply_ai_move(self, move: Optional[chess.Move]):
         """Apply AI move on the main thread."""
         try:
-            if move and move in self.current_board.legal_moves:
-                self.current_board = self.engine.makemove(move)
+            # If AI was cancelled while computing, ignore the result
+            if self.ai_cancel_token.is_set():
+                self.ai_thinking = False
+                return
+
+            if move and self.engine:
+                current_board = self.engine.get_current_board()
+                if move in current_board.legal_moves:
+                    # Make move in engine (this updates both engine board and game stack)
+                    self.engine.make_move(move)
 
             self.ai_thinking = False
             self._refresh_display()
@@ -352,8 +358,12 @@ class ChessApp:
 
     def _update_status(self):
         """Update status display based on current game state."""
-        if self.current_board.is_game_over():
-            outcome = self.current_board.outcome()
+        if not self.engine:
+            return
+            
+        current_board = self.engine.get_current_board()
+        if current_board.is_game_over():
+            outcome = current_board.outcome()
             
             if outcome.winner is None:
                 self.status_label.config(text="Game Over - Draw!", foreground='blue')
@@ -362,7 +372,7 @@ class ChessApp:
             else:
                 self.status_label.config(text="Game Over - Black Wins!", foreground='red')
         else:
-            if self.current_board.turn == chess.WHITE:
+            if current_board.turn == chess.WHITE:
                 self.status_label.config(text="White to move", foreground='black')
             else:
                 self.status_label.config(text="Black to move", foreground='black')
@@ -391,42 +401,55 @@ class ChessApp:
         self.captured_white_label.config(text=format_captures(white_captures))
         self.captured_black_label.config(text=format_captures(black_captures))
 
-    def _new_game(self):
-        """Reset to a new game and start AI if needed."""
-        if self.ai_thinking:
+    def _undo_move(self):
+        """Undo moves using engine's board stack."""
+        if not self.engine or not self.engine.can_undo():
             return
             
-        self.ai_thinking = False
-        self.engine.resetboard()
-        self.current_board = self.engine.get_board_copy()
-        self.selected_display_coords = None
-        
-        self._refresh_display()
-        
-        # Start AI if it should move first
-        if self.current_board.turn != self.player_color:
-            self.root.after(AI_MOVE_DELAY, self._start_ai_move)
-
-    def _undo_move(self):
-        """Undo the last two moves (player and AI)."""
-        if self.ai_thinking or not self.engine:
+        # If AI is thinking, cancel it and undo the player's last move
+        if self.ai_thinking:
+            # Cancel AI computation
+            self._cancel_ai_computation()
+            self.ai_thinking = False
+            
+            # Undo the player's move
+            self.engine.undo_move()
+            self.selected_display_coords = None
+            self._refresh_display()
             return
-
-        # Undo up to two moves to return to player's turn
-        moves_to_undo = min(2, len(self.engine.board.move_stack))
-        for _ in range(moves_to_undo):
-            result = self.engine.undo()
-            if result:
-                self.current_board = result
-
+            
+        # If AI is not thinking, check whose turn it is to decide what to undo
+        current_board = self.engine.get_current_board()
+        current_turn_is_player = (current_board.turn == self.player_color)
+        
+        if current_turn_is_player:
+            # It's the player's turn, so the last move was AI's move
+            # Undo both AI move and the player move before it
+            if self.engine.can_undo():
+                self.engine.undo_move()  # Undo AI move
+            if self.engine.can_undo():
+                self.engine.undo_move()  # Undo player move
+        else:
+            # It's AI's turn, so the last move was player's move
+            # Just undo the player's move
+            self.engine.undo_move()
+            
         self.selected_display_coords = None
         self._refresh_display()
 
     def _end_game(self):
         """End current game and return to start screen."""
+        # If AI is thinking, cancel it and proceed immediately back to start
         if self.ai_thinking:
-            return
-            
+            self._cancel_ai_computation()
+            self.ai_thinking = False
+
+        # Engine cleanup is handled by resetboard() when starting new game
+        self.selected_display_coords = None
+        # Drop current engine reference so start screen is clean
+        self.engine = None
+
+        # Show start screen immediately (no waiting for AI thread)
         self._show_start_screen()
 
 

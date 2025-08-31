@@ -11,6 +11,8 @@ from tkinter import ttk
 import chess
 from typing import Optional, Tuple, Callable
 
+from constants import PIECE_UNICODES
+
 # Board layout constants
 BOARD_DIM = 8
 DEFAULT_SQUARE_SIZE = 60
@@ -38,12 +40,6 @@ PIECE_FONT_NAME = 'Arial'
 COORD_OFFSET = 5
 COORD_CORNER_OFFSET = 10
 HIGHLIGHT_RADIUS_SCALE = 8
-
-# Piece unicode symbols
-PIECE_UNICODES = {
-    'P': '♙', 'N': '♘', 'B': '♗', 'R': '♖', 'Q': '♕', 'K': '♔',
-    'p': '♟', 'n': '♞', 'b': '♝', 'r': '♜', 'q': '♛', 'k': '♚',
-}
 
 
 class BoardRenderer:
