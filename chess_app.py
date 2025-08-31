@@ -139,6 +139,7 @@ class ChessApp:
         is_white_player = (player_color == chess.WHITE)
         self.board_renderer = BoardRenderer(self.canvas, is_white_player)
         self.board_renderer.set_square_click_handler(self._on_square_clicked)
+        self.board_renderer.set_resize_handler(self._on_resize)
         
         # Start the game
         self.selected_display_coords = None
@@ -265,6 +266,13 @@ class ChessApp:
                 else:
                     self.selected_display_coords = None
                 self._refresh_display()
+
+    def _on_resize(self):
+        """Handle board resize events from the renderer."""
+        # Update status and captured panel to ensure they stay consistent
+        if self.current_board:
+            self._update_status()
+            self._update_captured_panel()
 
     def _find_legal_move(self, from_square: int, to_square: int) -> Optional[chess.Move]:
         """Find a legal move matching the from and to squares."""

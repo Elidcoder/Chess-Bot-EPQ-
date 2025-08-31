@@ -64,9 +64,11 @@ class BoardRenderer:
         # Display state
         self.selected_square = None  # (display_file, display_rank)
         self.last_move = None
+        self._last_board: Optional[chess.Board] = None  # Keep last rendered board for resize
         
         # Event handlers
         self.on_square_clicked: Optional[Callable[[int, int], None]] = None
+        self.on_resize: Optional[Callable[[], None]] = None
         
         # Bind canvas events
         self.canvas.bind('<Button-1>', self._handle_click)
@@ -75,6 +77,10 @@ class BoardRenderer:
     def set_square_click_handler(self, handler: Callable[[int, int], None]):
         """Set the callback for when a square is clicked."""
         self.on_square_clicked = handler
+
+    def set_resize_handler(self, handler: Callable[[], None]):
+        """Set the callback for when the canvas is resized."""
+        self.on_resize = handler
 
     def render_board(self, board: chess.Board, selected_square: Optional[Tuple[int, int]] = None,
                     last_move: Optional[chess.Move] = None):
@@ -88,6 +94,7 @@ class BoardRenderer:
         """
         self.selected_square = selected_square
         self.last_move = last_move
+        self._last_board = board  # Store for resize redraws
         
         self.canvas.delete('all')
         
@@ -285,7 +292,19 @@ class BoardRenderer:
         
         if new_square_size != self.square_size:
             self.square_size = new_square_size
-            # Note: The main app should call render_board again after resize
+            # Automatically redraw the board with current state
+            if self._last_board is not None:
+                try:
+                    self.render_board(self._last_board, self.selected_square, self.last_move)
+                except Exception:
+                    pass  # Don't let render errors crash resize handling
+            
+            # Notify parent that resize occurred
+            if self.on_resize:
+                try:
+                    self.on_resize()
+                except Exception:
+                    pass  # Don't let callback errors crash resize handling
 
     def get_chess_coordinates_from_display(self, display_file: int, display_rank: int) -> Tuple[int, int]:
         """Public method to convert display coordinates to chess coordinates."""
