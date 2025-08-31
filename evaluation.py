@@ -69,7 +69,11 @@ def check_or_capture_score(board, check_or_capture):
     return score
 
 # This alpha_beta can be used as white or black so no need for max/min
-def alpha_beta(alpha, beta, board, depth):
+def alpha_beta(alpha, beta, board, depth, cancel_token=None):
+    
+  ## Check for cancellation
+  if cancel_token and cancel_token.is_set():
+    return 0
     
   ## If it's a draw score 0, if it's a checkmate score badly 
   ## also nearer mates are better than further away mates 
@@ -81,8 +85,12 @@ def alpha_beta(alpha, beta, board, depth):
   ## If depth is non-zero return the score using alpha - beta pruning
   if depth:
     for M in board.generate_legal_moves():
+      # Check for cancellation
+      if cancel_token and cancel_token.is_set():
+        return alpha
+        
       board.push(M)
-      rating = -alpha_beta(-beta, -alpha, board, depth - 1)
+      rating = -alpha_beta(-beta, -alpha, board, depth - 1, cancel_token)
       board.pop()
       if rating >= beta:
         return beta
@@ -91,10 +99,14 @@ def alpha_beta(alpha, beta, board, depth):
     return alpha
   
   ## If depth is zero evaluate the board
-  return quiesence_search(alpha, beta, board)
+  return quiesence_search(alpha, beta, board, cancel_token)
 
 # Run a search through moves that would be dangerous to miss on evaluation
-def quiesence_search(alpha, beta, board):
+def quiesence_search(alpha, beta, board, cancel_token=None):
+  
+  ## Check for cancellation
+  if cancel_token and cancel_token.is_set():
+    return alpha
   
   ## Get an initial bound and do a small AB prune check
   board_value = evaluate_board(board)
@@ -111,8 +123,12 @@ def quiesence_search(alpha, beta, board):
                                 board.generate_legal_moves()))
   for M in sorted(dangerous_moves, 
                   key = lambda move: check_or_capture_score(board, move)):
+    # Check for cancellation
+    if cancel_token and cancel_token.is_set():
+      return alpha
+      
     board.push(M)
-    rating = -quiesence_search(-beta, -alpha, board)
+    rating = -quiesence_search(-beta, -alpha, board, cancel_token)
     board.pop()
     if rating >= beta:
       return beta

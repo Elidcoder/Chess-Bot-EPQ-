@@ -13,6 +13,7 @@ from typing import Optional
 
 from engine import get_default_engine, Engine
 from board_renderer import BoardRenderer
+from home_page import HomePage
 
 # Application constants
 APP_TITLE = "Chess Challenge"
@@ -59,6 +60,10 @@ class ChessApp:
         self.root = tk.Tk()
         self.engine: Optional[Engine] = None
         self.board_renderer: Optional[BoardRenderer] = None
+        self.home_page: Optional[HomePage] = None
+        
+        # Thread cancellation
+        self.ai_cancel_token = threading.Event()
         
         # Game state
         self.player_color = chess.WHITE
@@ -78,7 +83,17 @@ class ChessApp:
 
     def run(self):
         """Start the application main loop."""
+        # Set up cleanup handler
+        self.root.protocol("WM_DELETE_WINDOW", self._on_window_close)
         self.root.mainloop()
+        
+    def _on_window_close(self):
+        """Handle window close event with proper cleanup."""
+        # Cancel any running AI computation
+        self._cancel_ai_computation()
+        
+        # Destroy the window
+        self.root.destroy()
 
     def _setup_main_window(self):
         """Configure the main application window."""
@@ -94,31 +109,25 @@ class ChessApp:
         for widget in self.root.winfo_children():
             widget.destroy()
 
-        frame = ttk.Frame(self.root, padding=MAIN_PADDING * 2)
-        frame.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
-        self.root.grid_rowconfigure(0, weight=1)
-        self.root.grid_columnconfigure(0, weight=1)
-
-        # Title and subtitle
-        title = ttk.Label(frame, text=APP_TITLE, 
-                         font=(PIECE_FONT_NAME, TITLE_FONT_SIZE, 'bold'))
-        title.grid(row=0, column=0, pady=(MAIN_PADDING, MAIN_PADDING * 2))
-
-        subtitle = ttk.Label(frame, text='Choose color to play', 
-                           font=(PIECE_FONT_NAME, SUBTITLE_FONT_SIZE))
-        subtitle.grid(row=1, column=0, pady=(0, MAIN_PADDING))
-
-        # Game option buttons
-        button_configs = [
-            ('Play as White', lambda: self._start_game(chess.WHITE), 2),
-            ('Play as Black', lambda: self._start_game(chess.BLACK), 3),
-            ('Quit', self.root.destroy, 4)
-        ]
+        # Create and show home page
+        self.home_page = HomePage(self.root, APP_TITLE)
+        self.home_page.set_callbacks(
+            on_play_white=lambda: self._start_game(chess.WHITE),
+            on_play_black=lambda: self._start_game(chess.BLACK),
+            on_quit=self._quit_application
+        )
+        self.home_page.show()
         
-        for text, command, row in button_configs:
-            pady = (SIDE_PANEL_PADDING, 4) if row < 4 else (4, SIDE_PANEL_PADDING)
-            ttk.Button(frame, text=text, command=command).grid(
-                row=row, column=0, pady=pady)
+    def _quit_application(self):
+        """Quit the application with proper cleanup."""
+        self._cancel_ai_computation()
+        self.root.quit()
+        
+    def _cancel_ai_computation(self):
+        """Cancel any running AI computation."""
+        self.ai_cancel_token.set()
+        # Reset for next game
+        self.ai_cancel_token = threading.Event()
 
     def _start_game(self, player_color: chess.Color):
         """Start a new chess game with the specified player color."""
@@ -314,10 +323,12 @@ class ChessApp:
         def compute_move():
             """Background thread function to compute AI move."""
             try:
-                best_move = self.engine.get_best_move()
-                self.root.after(0, lambda move=best_move: self._apply_ai_move(move))
+                best_move = self.engine.get_best_move(cancel_token=self.ai_cancel_token)
+                if not self.ai_cancel_token.is_set():
+                    self.root.after(0, lambda move=best_move: self._apply_ai_move(move))
             except Exception as error:
-                self.root.after(0, lambda err=error: self._handle_ai_error(err))
+                if not self.ai_cancel_token.is_set():
+                    self.root.after(0, lambda err=error: self._handle_ai_error(err))
 
         threading.Thread(target=compute_move, daemon=True).start()
 

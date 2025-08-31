@@ -125,12 +125,12 @@ class Engine:
     def legal_moves(self):
         return list(self.board.generate_legal_moves())
 
-    def get_best_move(self) -> Optional[chess.Move]:
+    def get_best_move(self, cancel_token=None) -> Optional[chess.Move]:
         """Get the best move for the current position without making it."""
-        uci_move = self.find_best_move()
+        uci_move = self.find_best_move(cancel_token)
         return chess.Move.from_uci(uci_move) if uci_move else None
 
-    def find_best_move(self) -> Optional[str]:
+    def find_best_move(self, cancel_token=None) -> Optional[str]:
         """Blocking call that returns a UCI string for the best move."""
         best_move = None
         alpha = ALPHA_INIT
@@ -138,9 +138,13 @@ class Engine:
         # sort moves by shallow static eval to get reasonable ordering
         moves = sorted(self.board.generate_legal_moves(), key=lambda m: -evaluate_move_on_board(m, self.board))
         for move in moves:
+            # Check for cancellation
+            if cancel_token and cancel_token.is_set():
+                return None
+                
             self.board.push(move)
             try:
-                score = -alpha_beta(-BETA_INIT, -alpha, self.board, self.depth - 1)
+                score = -alpha_beta(-BETA_INIT, -alpha, self.board, self.depth - 1, cancel_token)
             finally:
                 self.board.pop()
             if score > alpha:
