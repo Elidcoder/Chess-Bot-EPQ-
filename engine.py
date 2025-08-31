@@ -19,10 +19,34 @@ class Engine:
         self.depth = depth
 
     def reset(self):
+        """Legacy compatibility method - calls resetboard()."""
+        return self.resetboard()
+
+    def resetboard(self):
+        """Reset the board to the starting position and clear capture tracking."""
         self.board = chess.Board()
         self.captured_by_white.clear()
         self.captured_by_black.clear()
         self._capture_stack.clear()
+
+    def get_board_copy(self) -> chess.Board:
+        """Return a copy of the current board state."""
+        return chess.Board(self.board.fen())
+
+    def makemove(self, move: chess.Move) -> chess.Board:
+        """Make a move and return a copy of the new board state."""
+        if move in self.board.legal_moves:
+            self.push(move)
+            return self.get_board_copy()
+        else:
+            raise ValueError(f"Illegal move: {move}")
+
+    def undo(self) -> Optional[chess.Board]:
+        """Undo the last move and return the new board state, or None if no moves to undo."""
+        undone_move = self.pop()
+        if undone_move:
+            return self.get_board_copy()
+        return None
 
     def push(self, move: chess.Move):
         """Push a move onto the internal board. Caller should ensure move is legal."""
@@ -100,6 +124,11 @@ class Engine:
 
     def legal_moves(self):
         return list(self.board.generate_legal_moves())
+
+    def get_best_move(self) -> Optional[chess.Move]:
+        """Get the best move for the current position without making it."""
+        uci_move = self.find_best_move()
+        return chess.Move.from_uci(uci_move) if uci_move else None
 
     def find_best_move(self) -> Optional[str]:
         """Blocking call that returns a UCI string for the best move."""
