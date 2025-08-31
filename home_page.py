@@ -10,13 +10,17 @@ import chess
 from typing import Callable, Optional
 
 # Constants for home page layout
-TITLE_FONT_SIZE = 24
-SUBTITLE_FONT_SIZE = 16
-BUTTON_FONT_SIZE = 12
+TITLE_FONT_SIZE = 50
+SUBTITLE_FONT_SIZE = 30
+BUTTON_FONT_SIZE = 18
 PIECE_FONT_NAME = 'Arial'
 HOME_PADDING = 30
 BUTTON_SPACING = 15
 TITLE_SPACING = 20
+# Button color scheme to make controls stand out from the background
+BUTTON_BG = '#ADD8E6'  # warm yellow
+BUTTON_FG = '#000000'  # black text
+BUTTON_ACTIVE_BG = '#FFB84D'
 
 
 class HomePage:
@@ -92,13 +96,22 @@ class HomePage:
         ]
         
         for text, command, row in button_configs:
-            button = ttk.Button(
-                buttons_frame, 
-                text=text, 
+            # Make the start buttons larger and easier to click; use tk.Button so font/ipad options work
+            button = tk.Button(
+                buttons_frame,
+                text=text,
                 command=command,
-                width=20
+                width=24,
+                font=(PIECE_FONT_NAME, BUTTON_FONT_SIZE),
+                bg=BUTTON_BG,
+                fg=BUTTON_FG,
+                activebackground=BUTTON_ACTIVE_BG,
+                relief='raised',
+                bd=2
             )
-            button.grid(row=row, column=0, pady=BUTTON_SPACING//2, padx=HOME_PADDING)
+            # Add internal padding (ipadx/ipady) so the button visually appears bigger
+            button.grid(row=row, column=0, pady=(BUTTON_SPACING, BUTTON_SPACING//2),
+                        padx=HOME_PADDING, ipadx=24, ipady=10)
             
     def _handle_play_white(self):
         """Handle Play as White button click."""
