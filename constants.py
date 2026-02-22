@@ -1,9 +1,3 @@
-"""
-Shared constants for the chess application.
-
-This module contains constants used across multiple modules to avoid duplication.
-"""
-
 # Piece unicode symbols for display
 PIECE_UNICODES = {
     'P': '♙', 'N': '♘', 'B': '♗', 'R': '♖', 'Q': '♕', 'K': '♔',

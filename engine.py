@@ -19,94 +19,84 @@ class Engine:
         # Initialize with starting position
         self._push_game_state()
 
-    def set_depth(self, depth: int):
-        self.depth = depth
-
-    def resetboard(self):
-        """Reset the board to the starting position and clear all tracking."""
-        self.board = chess.Board()
-        self.captured_by_white.clear()
-        self.captured_by_black.clear()
-        self._capture_stack.clear()
-        self._board_state_stack.clear()
-        # Initialize with starting position
-        self._push_game_state()
-
     def get_current_board(self) -> chess.Board:
-        """Return a copy of the current game state (not the engine's working board)."""
-        if self._board_state_stack:
-            return chess.Board(self._board_state_stack[-1].fen())
-        return chess.Board()
+        return chess.Board(self._board_state_stack[-1].fen())
         
     def _push_game_state(self):
-        """Push current board state onto the game stack."""
         self._board_state_stack.append(chess.Board(self.board.fen()))
         
-    def _pop_game_state(self) -> Optional[chess.Board]:
-        """Pop the most recent game state from the stack."""
-        if len(self._board_state_stack) > 1:  # Keep at least starting position
-            self._board_state_stack.pop()
-            # Reset working board to current game state
-            if self._board_state_stack:
-                self.board = chess.Board(self._board_state_stack[-1].fen())
-                # Use capture stack for efficient undo instead of rebuilding
-                self._undo_last_capture()
-            return self.get_current_board()
-        return None
+    #TODO(BUG WITH STARTING AS BLACK -> STARTING MOVE CAN GET UNDONE)
+    def undo_move(self) -> bool:
+        if len(self._board_state_stack) <= 1:
+            return False
+
+        self._board_state_stack.pop()
+        # Update to match old state
+        self.board = chess.Board(self._board_state_stack[-1].fen())
+        self._undo_last_capture()
+        self._sync_capture_stack()
+        return True
 
     def _undo_last_capture(self):
-        """Efficiently undo the last capture using the capture stack."""
-        if self._capture_stack:
-            capture_info = self._capture_stack.pop()
-            if capture_info:
-                captured_symbol_lower, capturer_is_white = capture_info
-                if capturer_is_white:
-                    # Restore the piece that was captured by white
-                    cur = self.captured_by_white.get(captured_symbol_lower, 0)
-                    if cur <= 1:
-                        self.captured_by_white.pop(captured_symbol_lower, None)
-                    else:
-                        self.captured_by_white[captured_symbol_lower] = cur - 1
-                else:
-                    # Restore the piece that was captured by black
-                    cur = self.captured_by_black.get(captured_symbol_lower, 0)
-                    if cur <= 1:
-                        self.captured_by_black.pop(captured_symbol_lower, None)
-                    else:
-                        self.captured_by_black[captured_symbol_lower] = cur - 1
+        capture_info = self._capture_stack.pop()
+        if not capture_info:
+            return
+
+        captured_symbol_lower, capturer_is_white = capture_info
+
+        # Restore the piece that was captured by white
+        if capturer_is_white:
+            cur = self.captured_by_white.get(captured_symbol_lower, 0)
+            if cur <= 1:
+                self.captured_by_white.pop(captured_symbol_lower, None)
+            else:
+                self.captured_by_white[captured_symbol_lower] = cur - 1
+            return
+
+        # Restore the piece that was captured by black
+        cur = self.captured_by_black.get(captured_symbol_lower, 0)
+        if cur <= 1:
+            self.captured_by_black.pop(captured_symbol_lower, None)
+        else:
+            self.captured_by_black[captured_symbol_lower] = cur - 1
 
     def _sync_capture_stack(self):
-        """Ensure capture stack length matches the expected game state."""
-        expected_length = len(self._board_state_stack) - 1  # -1 because starting position has no captures
+        expected_length = len(self._board_state_stack) - 1
         current_length = len(self._capture_stack)
         
         if current_length != expected_length:
-            # Rebuild capture tracking to sync
             self._rebuild_capture_tracking()
 
-    def can_undo(self) -> bool:
-        """Check if there are moves available to undo."""
-        return len(self._board_state_stack) > 1
-
     def make_move(self, move: chess.Move) -> bool:
-        """Make a move and push new game state. Returns True if successful."""
-        if move in self.board.legal_moves:
-            self.push(move)
-            self._push_game_state()  # Push new state to game stack
-            # Ensure stacks stay synchronized
-            self._sync_capture_stack()
-            return True
-        return False
+        if move not in self.board.legal_moves:
+            return False
 
-    def undo_move(self) -> bool:
-        """Undo the last move from both engine and game stack. Returns True if successful."""
-        if self.can_undo():
-            # Pop from game stack first (this syncs working board)
-            self._pop_game_state()
-            # Ensure stacks stay synchronized
-            self._sync_capture_stack()
+        was_capture = self.board.is_capture(move)
+        capturer_is_white = self.board.turn == chess.WHITE
+        if self.board.is_en_passant(move):
+            if capturer_is_white:
+                cap_sq = move.to_square - 8
+            else:
+                cap_sq = move.to_square + 8
+            cap_piece = self.board.piece_at(cap_sq)
+        else:
+            cap_piece = self.board.piece_at(move.to_square)
+
+        self.board.push(move)
+        self._push_game_state()
+
+        if not was_capture:
+            self._capture_stack.append(None)
             return True
-        return False
+
+        captured_symbol_lower = cap_piece.symbol().lower()
+        if capturer_is_white:
+            self.captured_by_white[captured_symbol_lower] = self.captured_by_white.get(captured_symbol_lower, 0) + 1
+        else:
+            self.captured_by_black[captured_symbol_lower] = self.captured_by_black.get(captured_symbol_lower, 0) + 1
+
+        self._capture_stack.append((captured_symbol_lower, capturer_is_white))
+        return True
 
     def get_last_move(self) -> Optional[chess.Move]:
         """Get the last move made by comparing game states."""
@@ -123,83 +113,36 @@ class Engine:
                     return move
         return None
 
-    def push(self, move: chess.Move):
-        """Push a move onto the internal board. Caller should ensure move is legal."""
-        # Determine if this move captures a piece and record it before mutating the board
-        captured_symbol_lower = None
-        capturer_is_white = self.board.turn == chess.WHITE
-
-        if self.board.is_capture(move):
-            # handle en-passant which captures a pawn on a different square
-            if self.board.is_en_passant(move):
-                # captured pawn sits on the file of to_square but on the from-rank
-                if self.board.turn == chess.WHITE:
-                    cap_sq = move.to_square - 8
-                else:
-                    cap_sq = move.to_square + 8
-                cap_piece = self.board.piece_at(cap_sq)
-            else:
-                cap_piece = self.board.piece_at(move.to_square)
-
-            if cap_piece:
-                captured_symbol_lower = cap_piece.symbol().lower()
-                # increment appropriate counter
-                if capturer_is_white:
-                    self.captured_by_white[captured_symbol_lower] = (
-                        self.captured_by_white.get(captured_symbol_lower, 0) + 1
-                    )
-                else:
-                    self.captured_by_black[captured_symbol_lower] = (
-                        self.captured_by_black.get(captured_symbol_lower, 0) + 1
-                    )
-
-        # record into stack to allow undo
-        self._capture_stack.append((captured_symbol_lower, capturer_is_white) if captured_symbol_lower else None)
-
-        # Now actually push the move
-        self.board.push(move)
-
     def pop(self) -> Optional[chess.Move]:
-        if not self.board.move_stack:
-            return None
-
-        # Pop the board move first
         mv = self.board.pop()
+        info = self._capture_stack.pop()
+        if not info:
+            return mv
 
-        # Restore capture counts if the popped move had a capture
-        # Use bounds checking to prevent "pop from empty list" errors
-        if self._capture_stack:
-            info = self._capture_stack.pop()
-            if info:
-                captured_symbol_lower, capturer_is_white = info
-                if capturer_is_white:
-                    # a piece previously recorded as captured by White is being restored
-                    cur = self.captured_by_white.get(captured_symbol_lower, 0)
-                    if cur <= 1:
-                        self.captured_by_white.pop(captured_symbol_lower, None)
-                    else:
-                        self.captured_by_white[captured_symbol_lower] = cur - 1
-                else:
-                    cur = self.captured_by_black.get(captured_symbol_lower, 0)
-                    if cur <= 1:
-                        self.captured_by_black.pop(captured_symbol_lower, None)
-                    else:
-                        self.captured_by_black[captured_symbol_lower] = cur - 1
+        # Restore captured piece
+        captured_symbol_lower, capturer_is_white = info
+        if capturer_is_white:
+            cur = self.captured_by_white.get(captured_symbol_lower, 0)
+            if cur <= 1:
+                self.captured_by_white.pop(captured_symbol_lower, None)
+            else:
+                self.captured_by_white[captured_symbol_lower] = cur - 1
+        else:
+            cur = self.captured_by_black.get(captured_symbol_lower, 0)
+            if cur <= 1:
+                self.captured_by_black.pop(captured_symbol_lower, None)
+            else:
+                self.captured_by_black[captured_symbol_lower] = cur - 1
 
         return mv
 
     def get_captured_by_white(self) -> dict:
-        """Return a shallow copy of pieces captured by White (black pieces taken).
-        Keys are piece type letters in lowercase ('p','n','b','r','q','k')."""
         return dict(self.captured_by_white)
 
     def get_captured_by_black(self) -> dict:
-        """Return a shallow copy of pieces captured by Black (white pieces taken).
-        Keys are piece type letters in lowercase ('p','n','b','r','q','k')."""
         return dict(self.captured_by_black)
 
     def find_best_move(self, cancel_token=None) -> Optional[chess.Move]:
-        """Blocking call that returns the best move for the current position."""
         try:
             best_move = None
             alpha = ALPHA_INIT
@@ -241,4 +184,3 @@ class Engine:
 
 if __name__ == '__main__':
     e = Engine()
-    print('Engine ready, legal moves:', len(list(e.board.generate_legal_moves())))

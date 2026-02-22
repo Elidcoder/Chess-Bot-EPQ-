@@ -12,35 +12,7 @@ import chess
 from typing import Optional, Tuple, Callable
 
 from constants import PIECE_UNICODES
-
-# Board layout constants
-BOARD_DIM = 8
-DEFAULT_SQUARE_SIZE = 72
-MIN_SQUARE_SIZE = 36
-PIECE_FONT_SCALE = 0.65
-COORD_FONT_SCALE = 0.25
-MIN_PIECE_FONT_SIZE = 20
-MIN_COORD_FONT_SIZE = 10
-
-# Color scheme
-LIGHT_SQUARE = '#F0D9B5'
-DARK_SQUARE = '#B58863'
-HIGHLIGHT_COLOR = '#FFFF99'
-SELECTED_COLOR = '#90EE90'
-LAST_MOVE_COLOR = '#FFE4B5'
-WHITE_PIECE_COLOR = '#FFFFFF'
-BLACK_PIECE_COLOR = '#000000'
-BOARD_OUTLINE_COLOR = '#8B4513'
-COORD_TEXT_COLOR = '#654321'
-
-# Typography
-PIECE_FONT_NAME = 'Arial'
-
-# Layout spacing
-COORD_OFFSET = 5
-COORD_CORNER_OFFSET = 10
-HIGHLIGHT_RADIUS_SCALE = 8
-
+from ui_config import UIConfig as UI, ColorConfig as COL, BoardConfig as BC, LayoutConfig as LC
 
 class BoardRenderer:
     """Handles all chess board rendering and display logic."""
@@ -55,7 +27,7 @@ class BoardRenderer:
         """
         self.canvas = canvas
         self.is_white_player = is_white_player
-        self.square_size = DEFAULT_SQUARE_SIZE
+        self.square_size = UI.board.DEFAULT_SQUARE_SIZE
         
         # Display state
         self.selected_square = None  # (display_file, display_rank)
@@ -97,11 +69,11 @@ class BoardRenderer:
         # Calculate layout
         board_size, offset_x, offset_y = self._calculate_board_metrics()
         piece_font_size, coord_font_size = self._calculate_font_sizes()
-        coord_font = (PIECE_FONT_NAME, coord_font_size)
+        coord_font = (UI.fonts.FAMILY, coord_font_size)
 
         # Draw all squares, coordinates, and pieces
-        for chess_rank in range(BOARD_DIM):  # 0-7 (chess ranks 1-8)
-            for chess_file in range(BOARD_DIM):  # 0-7 (chess files a-h)
+        for chess_rank in range(UI.board.DIMENSION):  # 0-7 (chess ranks 1-8)
+            for chess_file in range(UI.board.DIMENSION):  # 0-7 (chess files a-h)
                 square = chess.square(chess_file, chess_rank)
                 
                 # Draw square and coordinates
@@ -118,7 +90,7 @@ class BoardRenderer:
 
     def _calculate_board_metrics(self) -> Tuple[int, int, int]:
         """Calculate board dimensions and positioning."""
-        board_size = self.square_size * BOARD_DIM
+        board_size = self.square_size * UI.board.DIMENSION
         canvas_w = self.canvas.winfo_width()
         canvas_h = self.canvas.winfo_height()
         
@@ -129,41 +101,43 @@ class BoardRenderer:
 
     def _calculate_font_sizes(self) -> Tuple[int, int]:
         """Calculate appropriate font sizes based on square size."""
-        piece_font_size = max(MIN_PIECE_FONT_SIZE, int(self.square_size * PIECE_FONT_SCALE))
-        coord_font_size = max(MIN_COORD_FONT_SIZE, int(self.square_size * COORD_FONT_SCALE))
+        piece_font_size = max(UI.board.MIN_PIECE_FONT_SIZE, 
+                            int(self.square_size * UI.board.PIECE_FONT_SCALE))
+        coord_font_size = max(UI.board.MIN_COORD_FONT_SIZE, 
+                            int(self.square_size * UI.board.COORD_FONT_SCALE))
         return piece_font_size, coord_font_size
 
     def _get_display_coordinates(self, chess_file: int, chess_rank: int) -> Tuple[int, int]:
         """Convert chess coordinates to display coordinates based on player color."""
         if self.is_white_player:
             # Standard orientation: a1 at bottom-left
-            return chess_file, 7 - chess_rank
+            return chess_file, UI.board.DIMENSION - 1 - chess_rank
         else:
             # Flipped orientation: a8 at bottom-left (black player perspective)
-            return 7 - chess_file, chess_rank
+            return UI.board.DIMENSION - 1 - chess_file, chess_rank
 
     def _get_chess_coordinates_from_display(self, display_file: int, display_rank: int) -> Tuple[int, int]:
         """Convert display coordinates back to chess coordinates."""
         if self.is_white_player:
-            return display_file, 7 - display_rank
+            return display_file, UI.board.DIMENSION - 1 - display_rank
         else:
-            return 7 - display_file, display_rank
+            return UI.board.DIMENSION - 1 - display_file, display_rank
 
     def _get_square_color(self, display_file: int, display_rank: int, chess_square: int) -> str:
         """Determine the display color for a board square."""
         # Check for last move highlight
         if (self.last_move and 
             chess_square in (self.last_move.from_square, self.last_move.to_square)):
-            return LAST_MOVE_COLOR
+            return UI.colors.LAST_MOVE_COLOR
             
         # Check for selection highlight
         if self.selected_square and self.selected_square == (display_file, display_rank):
-            return SELECTED_COLOR
+            return UI.colors.SELECTED_COLOR
             
         # Standard checkerboard pattern based on chess coordinates
         chess_file = chess.square_file(chess_square)
         chess_rank = chess.square_rank(chess_square)
-        return DARK_SQUARE if (chess_rank + chess_file) % 2 else LIGHT_SQUARE
+        return UI.colors.DARK_SQUARE if (chess_rank + chess_file) % 2 else UI.colors.LIGHT_SQUARE
 
     def _draw_square_and_coordinates(self, chess_file: int, chess_rank: int, chess_square: int,
                                    offset_x: int, offset_y: int, coord_font):
@@ -178,22 +152,21 @@ class BoardRenderer:
         color = self._get_square_color(display_file, display_rank, chess_square)
         
         # Draw square
-        self.canvas.create_rectangle(x0, y0, x1, y1, fill=color, 
-                                   outline=BOARD_OUTLINE_COLOR, width=1)
+        self.canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline=COL.BOARD_OUTLINE, width=1)
         
         # Draw rank numbers (left edge) - show chess rank (1-8)
         if display_file == 0:
             chess_rank_display = chess_rank + 1 if self.is_white_player else (8 - chess_rank)
-            self.canvas.create_text(x0 + COORD_OFFSET, y0 + COORD_OFFSET, 
+            self.canvas.create_text(x0 + LC.COORD_OFFSET, y0 + LC.COORD_OFFSET, 
                                   text=str(chess_rank_display),
-                                  font=coord_font, fill=COORD_TEXT_COLOR, anchor='nw')
+                                  font=coord_font, fill=COL.COORD_TEXT, anchor='nw')
         
         # Draw file letters (bottom edge) - show chess file (a-h)
-        if display_rank == BOARD_DIM - 1:
+        if display_rank == BC.DIMENSION - 1:
             chess_file_display = chess_file if self.is_white_player else (7 - chess_file)
-            self.canvas.create_text(x1 - COORD_CORNER_OFFSET, y1 - COORD_OFFSET,
+            self.canvas.create_text(x1 - LC.COORD_CORNER_OFFSET, y1 - LC.COORD_OFFSET,
                                   text=chr(ord('a') + chess_file_display),
-                                  font=coord_font, fill=COORD_TEXT_COLOR, anchor='se')
+                                  font=coord_font, fill=COL.COORD_TEXT, anchor='se')
 
     def _draw_piece(self, board: chess.Board, chess_square: int, chess_file: int, chess_rank: int,
                    offset_x: int, offset_y: int, piece_font_size: int):
@@ -210,12 +183,12 @@ class BoardRenderer:
         
         # Choose font weight and color based on piece color
         if piece.color == chess.WHITE:
-            font = (PIECE_FONT_NAME, piece_font_size, 'bold')
-            fill_color = WHITE_PIECE_COLOR
+            font = (UI.fonts.FAMILY, piece_font_size, 'bold')
+            fill_color = COL.WHITE_PIECE
         else:
-            font = (PIECE_FONT_NAME, piece_font_size, 'normal')
-            fill_color = BLACK_PIECE_COLOR
-            
+            font = (UI.fonts.FAMILY, piece_font_size, 'normal')
+            fill_color = COL.BLACK_PIECE
+
         self.canvas.create_text(piece_x, piece_y, text=PIECE_UNICODES[piece.symbol()],
                               font=font, fill=fill_color)
 
@@ -240,11 +213,11 @@ class BoardRenderer:
             
             center_x = offset_x + display_file * self.square_size + self.square_size // 2
             center_y = offset_y + display_rank * self.square_size + self.square_size // 2
-            radius = max(4, self.square_size // HIGHLIGHT_RADIUS_SCALE)
+            radius = max(4, self.square_size // UI.board.HIGHLIGHT_RADIUS_SCALE)
             
             self.canvas.create_oval(center_x - radius, center_y - radius,
                                   center_x + radius, center_y + radius,
-                                  fill=HIGHLIGHT_COLOR, outline='orange', width=2)
+                                  fill=COL.HIGHLIGHT_COLOR, outline='orange', width=2)
 
     def _handle_click(self, event):
         """Handle mouse clicks on the canvas."""
@@ -267,8 +240,8 @@ class BoardRenderer:
         # Convert to display square indices
         display_file = click_x // self.square_size
         display_rank = click_y // self.square_size
-        
-        if not (0 <= display_file < BOARD_DIM and 0 <= display_rank < BOARD_DIM):
+
+        if not (0 <= display_file < BC.DIMENSION and 0 <= display_rank < BC.DIMENSION):
             return None
             
         return int(display_file), int(display_rank)
@@ -284,7 +257,7 @@ class BoardRenderer:
 
         # Calculate new square size to fit canvas
         available_size = min(canvas_width, canvas_height)
-        new_square_size = max(MIN_SQUARE_SIZE, available_size // BOARD_DIM)
+        new_square_size = max(BC.MIN_SQUARE_SIZE, available_size // BC.DIMENSION)
         
         if new_square_size != self.square_size:
             self.square_size = new_square_size

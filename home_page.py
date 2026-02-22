@@ -8,25 +8,12 @@ import tkinter as tk
 from tkinter import ttk
 import chess
 from typing import Callable, Optional
-
-# Constants for home page layout
-TITLE_FONT_SIZE = 50
-SUBTITLE_FONT_SIZE = 30
-BUTTON_FONT_SIZE = 18
-PIECE_FONT_NAME = 'Arial'
-HOME_PADDING = 30
-BUTTON_SPACING = 15
-TITLE_SPACING = 20
-# Button color scheme to make controls stand out from the background
-BUTTON_BG = '#ADD8E6'  # warm yellow
-BUTTON_FG = '#000000'  # black text
-BUTTON_ACTIVE_BG = '#FFB84D'
-
+from ui_config import UIConfig
 
 class HomePage:
     """Initial screen for selecting game options."""
     
-    def __init__(self, parent: tk.Widget, app_title: str = "Chess Challenge"):
+    def __init__(self, parent: tk.Widget, app_title: str = UIConfig.game.APP_TITLE):
         """
         Initialize the home page.
         
@@ -39,15 +26,15 @@ class HomePage:
         self.frame: Optional[ttk.Frame] = None
         
         # Callbacks
-        self.on_play_white: Optional[Callable[[], None]] = None
-        self.on_play_black: Optional[Callable[[], None]] = None
+        self._on_play_white: Optional[Callable[[], None]] = None
+        self._on_play_black: Optional[Callable[[], None]] = None
         
     def set_callbacks(self, 
                      on_play_white: Callable[[], None],
                      on_play_black: Callable[[], None]):
         """Set callback functions for button actions."""
-        self.on_play_white = on_play_white
-        self.on_play_black = on_play_black
+        self._on_play_white = on_play_white
+        self._on_play_black = on_play_black
         
     def show(self):
         """Display the home page."""
@@ -60,65 +47,89 @@ class HomePage:
             self.frame = None
             
     def _create_interface(self):
-        """Create the home page interface."""
+        """Create the home page interface using centralized UI configuration."""
         # Main container frame - centered
         self.frame = ttk.Frame(self.parent)
         self.frame.place(relx=0.5, rely=0.5, anchor='center')
         
         # Configure parent for centering
+        self._setup_parent_grid()
+        
+        # Create UI elements
+        self._create_title()
+        self._create_subtitle()
+        self._create_buttons()
+    
+    def _setup_parent_grid(self):
+        """Configure parent widget grid for proper centering."""
         self.parent.grid_rowconfigure(0, weight=1)
         self.parent.grid_columnconfigure(0, weight=1)
-        
-        # Title
+    
+    def _create_title(self):
+        """Create the main title label."""
         title_label = ttk.Label(
             self.frame, 
             text=self.app_title,
-            font=(PIECE_FONT_NAME, TITLE_FONT_SIZE, 'bold')
+            font=(UIConfig.fonts.FAMILY, UIConfig.fonts.HOME_TITLE_SIZE, 'bold')
         )
-        title_label.grid(row=0, column=0, pady=(0, TITLE_SPACING))
-        
-        # Subtitle  
+        title_label.grid(row=0, column=0, pady=(0, UIConfig.layout.TITLE_SPACING))
+    
+    def _create_subtitle(self):
+        """Create the subtitle label."""
         subtitle_label = ttk.Label(
             self.frame,
             text='Choose your side',
-            font=(PIECE_FONT_NAME, SUBTITLE_FONT_SIZE)
+            font=(UIConfig.fonts.FAMILY, UIConfig.fonts.HOME_SUBTITLE_SIZE)
         )
-        subtitle_label.grid(row=1, column=0, pady=(0, TITLE_SPACING))
-        
+        subtitle_label.grid(row=1, column=0, pady=(0, UIConfig.layout.TITLE_SPACING))
+    
+    def _create_buttons(self):
+        """Create the game selection buttons."""
         # Buttons container
         buttons_frame = ttk.Frame(self.frame)
-        buttons_frame.grid(row=2, column=0, pady=(TITLE_SPACING, 0))
+        buttons_frame.grid(row=2, column=0, pady=(UIConfig.layout.TITLE_SPACING, 0))
         
-        # Game option buttons
+        # Button configurations with chess piece symbols
         button_configs = [
             ('♔ Play as White', self._handle_play_white, 0),
             ('♛ Play as Black', self._handle_play_black, 1)
         ]
         
         for text, command, row in button_configs:
-            # Make the start buttons larger and easier to click; use tk.Button so font/ipad options work
-            button = tk.Button(
-                buttons_frame,
-                text=text,
-                command=command,
-                width=24,
-                font=(PIECE_FONT_NAME, BUTTON_FONT_SIZE),
-                bg=BUTTON_BG,
-                fg=BUTTON_FG,
-                activebackground=BUTTON_ACTIVE_BG,
-                relief='raised',
-                bd=2
-            )
-            # Add internal padding (ipadx/ipady) so the button visually appears bigger
-            button.grid(row=row, column=0, pady=(BUTTON_SPACING, BUTTON_SPACING//2),
-                        padx=HOME_PADDING, ipadx=24, ipady=10)
+            self._create_game_button(buttons_frame, text, command, row)
+    
+    def _create_game_button(self, parent: tk.Widget, text: str, command: Callable, row: int):
+        """Create a single game selection button with consistent styling."""
+        button = tk.Button(
+            parent,
+            text=text,
+            command=command,
+            width=24,
+            font=(UIConfig.fonts.FAMILY, UIConfig.fonts.HOME_BUTTON_SIZE),
+            bg=UIConfig.colors.BUTTON_BG,
+            fg=UIConfig.colors.BUTTON_FG,
+            activebackground=UIConfig.colors.BUTTON_ACTIVE_BG,
+            relief='raised',
+            bd=2
+        )
+        
+        # Grid with padding for visual appeal
+        button.grid(
+            row=row, 
+            column=0, 
+            pady=(UIConfig.layout.BUTTON_SPACING, UIConfig.layout.BUTTON_SPACING // 2),
+            padx=UIConfig.layout.HOME_PADDING, 
+            ipadx=24, 
+            ipady=10
+        )
             
     def _handle_play_white(self):
         """Handle Play as White button click."""
-        if self.on_play_white:
-            self.on_play_white()
+        if self._on_play_white:
+            self._on_play_white()
             
     def _handle_play_black(self):
-        """Handle Play as Black button click.""" 
-        if self.on_play_black:
-            self.on_play_black()
+        """Handle Play as Black button click."""
+        if self._on_play_black:
+            self._on_play_black()
+            
