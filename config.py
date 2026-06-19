@@ -1,0 +1,65 @@
+"""Shared configuration: window/board styling, colours and piece symbols."""
+
+APP_TITLE = "Chess Challenge"
+SEARCH_DEPTH = 3
+MAX_ERROR_LENGTH = 30
+
+# Window
+WINDOW_WIDTH = 600
+WINDOW_HEIGHT = 700
+WINDOW_MIN_WIDTH = 400
+WINDOW_MIN_HEIGHT = 500
+
+# Fonts
+FONT_FAMILY = 'Arial'
+HOME_TITLE_SIZE = 50
+HOME_SUBTITLE_SIZE = 30
+HOME_BUTTON_SIZE = 18
+STATUS_SIZE = 14
+CAPTURED_SIZE = 16
+CAPTURED_LABEL_SIZE = 12
+
+# Layout spacing
+MAIN_PADDING = 10
+SIDE_PANEL_PADDING = 8
+BUTTON_PADDING = 5
+BORDER_WIDTH = 2
+HOME_PADDING = 30
+BUTTON_SPACING = 15
+TITLE_SPACING = 20
+COORD_OFFSET = 5
+COORD_CORNER_OFFSET = 10
+INITIAL_DRAW_DELAY = 100
+
+# Colours
+LIGHT_SQUARE = '#F0D9B5'
+DARK_SQUARE = '#B58863'
+HIGHLIGHT_COLOR = '#FFFF99'
+SELECTED_COLOR = '#90EE90'
+LAST_MOVE_COLOR = '#FFE4B5'
+BOARD_OUTLINE = '#8B4513'
+COORD_TEXT = '#654321'
+WHITE_PIECE = '#FFFFFF'
+BLACK_PIECE = '#000000'
+BUTTON_BG = '#ADD8E6'
+BUTTON_FG = '#000000'
+BUTTON_ACTIVE_BG = '#FFB84D'
+
+# Board rendering
+DIMENSION = 8
+DEFAULT_SQUARE_SIZE = 72
+MIN_SQUARE_SIZE = 36
+PIECE_FONT_SCALE = 0.65
+COORD_FONT_SCALE = 0.25
+MIN_PIECE_FONT_SIZE = 20
+MIN_COORD_FONT_SIZE = 10
+HIGHLIGHT_RADIUS_SCALE = 8
+
+# Piece display
+PIECE_UNICODES = {
+    'P': '♙', 'N': '♘', 'B': '♗', 'R': '♖', 'Q': '♕', 'K': '♔',
+    'p': '♟', 'n': '♞', 'b': '♝', 'r': '♜', 'q': '♛', 'k': '♚',
+}
+
+# Captured pieces display order (most valuable first)
+CAPTURE_ORDER = ['k', 'q', 'r', 'b', 'n', 'p']
